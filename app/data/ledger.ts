@@ -51,6 +51,7 @@ export interface SelectOption {
 export const navigationItems: NavigationItem[] = [
   { label: 'Dashboard', to: '/dashboard', icon: 'mdi-view-grid-outline' },
   { label: 'Trades', to: '/trades', icon: 'mdi-book-open-page-variant-outline' },
+  { label: 'Forum', to: '/forum', icon: 'mdi-forum-outline' },
   { label: 'Analytics', to: '/analytics', icon: 'mdi-chart-box-outline' },
   { label: 'Calendar', to: '/calendar', icon: 'mdi-calendar-month-outline' },
   { label: 'Journal', to: '/journal', icon: 'mdi-notebook-outline' },
