@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ImagePreviewDialog from '~/components/ui/ImagePreviewDialog.vue'
 import type { Trade } from '~/data/ledger'
 
 const props = defineProps<{
@@ -8,6 +9,9 @@ const props = defineProps<{
 const ledger = useLedger()
 
 const tradeActionBusy = ref(false)
+const isImagePreviewOpen = ref(false)
+const previewImageUrl = ref<string | null>(null)
+const previewImageTitle = ref('')
 
 function fixed(value: number | undefined, digits = 1) {
   return Number.isFinite(value) ? Number(value).toFixed(digits) : '-'
@@ -32,6 +36,16 @@ async function handleDeleteTrade() {
   } finally {
     tradeActionBusy.value = false
   }
+}
+
+function openImagePreview(url: string | null, title: string) {
+  if (!url) {
+    return
+  }
+
+  previewImageUrl.value = url
+  previewImageTitle.value = title
+  isImagePreviewOpen.value = true
 }
 </script>
 
@@ -98,19 +112,19 @@ async function handleDeleteTrade() {
             </div>
             <div class="detail-item">
               <div class="detail-label">Entry</div>
-            <div class="detail-value">{{ ledger.formatNumber(props.trade.entry) }}</div>
+            <div class="detail-value">{{ ledger.formatPrice(props.trade.entry) }}</div>
             </div>
             <div class="detail-item">
               <div class="detail-label">Exit</div>
-            <div class="detail-value">{{ ledger.formatNumber(props.trade.exit) }}</div>
+            <div class="detail-value">{{ ledger.formatPrice(props.trade.exit) }}</div>
             </div>
             <div class="detail-item">
               <div class="detail-label">Stop Loss</div>
-            <div class="detail-value">{{ ledger.formatNumber(props.trade.stopLoss) }}</div>
+            <div class="detail-value">{{ ledger.formatPrice(props.trade.stopLoss) }}</div>
             </div>
             <div class="detail-item">
               <div class="detail-label">Take Profit</div>
-            <div class="detail-value">{{ ledger.formatNumber(props.trade.takeProfit) }}</div>
+            <div class="detail-value">{{ ledger.formatPrice(props.trade.takeProfit) }}</div>
             </div>
             <div class="detail-item">
               <div class="detail-label">R:R</div>
@@ -156,7 +170,14 @@ async function handleDeleteTrade() {
             </div>
           </div>
           <div class="screenshot-grid">
-            <div v-for="shot in props.trade.screenshots" :key="shot.label" class="shot-card">
+            <button
+              v-for="shot in props.trade.screenshots"
+              :key="shot.label"
+              type="button"
+              class="shot-card"
+              :class="{ 'shot-card--interactive': shot.url }"
+              @click="openImagePreview(shot.url, shot.label)"
+            >
               <template v-if="shot.url">
                 <img :src="shot.url" :alt="shot.label" class="shot-image" />
               </template>
@@ -164,7 +185,7 @@ async function handleDeleteTrade() {
                 <v-icon size="30" class="mb-2">mdi-chart-box-outline</v-icon>
                 <div class="font-weight-bold">{{ shot.label }}</div>
               </div>
-            </div>
+            </button>
           </div>
         </div>
 
@@ -199,4 +220,10 @@ async function handleDeleteTrade() {
       <p class="muted">Click a trade row to see full execution details.</p>
     </div>
   </v-card>
+
+  <ImagePreviewDialog
+    v-model:visible="isImagePreviewOpen"
+    :url="previewImageUrl"
+    :title="previewImageTitle"
+  />
 </template>

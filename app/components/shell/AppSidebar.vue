@@ -49,8 +49,8 @@ async function handleSignOut() {
       size="default"
       rounded="xl"
       variant="flat"
-      :title="'New Trade'"
-      @click="ledger.openTradeDialog()"
+      :title="'Start Trade'"
+      @click="ledger.openStartTradeDialog()"
     >
       <v-icon size="22">mdi-plus</v-icon>
     </v-btn>

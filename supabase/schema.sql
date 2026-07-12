@@ -179,6 +179,30 @@ create table if not exists public.trades (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.open_trades (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  symbol text not null references public.instruments (symbol) on update cascade on delete restrict,
+  trade_date date not null,
+  trade_time time without time zone not null,
+  direction text not null check (direction in ('Long', 'Short')),
+  setup text not null,
+  session text not null check (session in ('Asia', 'London', 'New York')),
+  emotion text not null,
+  entry numeric(18,8) not null default 0,
+  stop_loss numeric(18,8) not null default 0,
+  take_profit numeric(18,8) not null default 0,
+  size numeric(18,4) not null default 0,
+  risk_percent numeric(6,2) not null default 0 check (risk_percent >= 0 and risk_percent <= 100),
+  why_entered text not null default '',
+  notes text not null default '',
+  screenshot_label text not null default 'Before trade',
+  screenshot_storage_path text,
+  screenshot_public_url text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.account_transactions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -236,6 +260,7 @@ on conflict (id) do update set
   public = excluded.public;
 
 create index if not exists idx_trades_user_date on public.trades (user_id, trade_date desc, trade_time desc);
+create index if not exists idx_open_trades_user_date on public.open_trades (user_id, trade_date desc, trade_time desc);
 create index if not exists idx_trades_user_symbol on public.trades (user_id, symbol);
 create index if not exists idx_trades_user_setup on public.trades (user_id, setup);
 create index if not exists idx_trades_user_session on public.trades (user_id, session);
@@ -349,6 +374,11 @@ create trigger trg_trades_updated_at
 before update on public.trades
 for each row execute function public.set_updated_at();
 
+drop trigger if exists trg_open_trades_updated_at on public.open_trades;
+create trigger trg_open_trades_updated_at
+before update on public.open_trades
+for each row execute function public.set_updated_at();
+
 drop trigger if exists trg_trades_balance_sync on public.trades;
 create trigger trg_trades_balance_sync
 after insert or update or delete on public.trades
@@ -384,6 +414,7 @@ alter table public.instruments enable row level security;
 alter table public.trade_setups enable row level security;
 alter table public.trade_emotions enable row level security;
 alter table public.trades enable row level security;
+alter table public.open_trades enable row level security;
 alter table public.account_transactions enable row level security;
 alter table public.trade_screenshots enable row level security;
 alter table public.playbook_setups enable row level security;
@@ -574,6 +605,31 @@ with check (auth.uid() = user_id);
 drop policy if exists "Trades are deletable by owner" on public.trades;
 create policy "Trades are deletable by owner"
 on public.trades
+for delete
+using (auth.uid() = user_id);
+
+drop policy if exists "Open trades are readable by owner" on public.open_trades;
+create policy "Open trades are readable by owner"
+on public.open_trades
+for select
+using (auth.uid() = user_id);
+
+drop policy if exists "Open trades are insertable by owner" on public.open_trades;
+create policy "Open trades are insertable by owner"
+on public.open_trades
+for insert
+with check (auth.uid() = user_id);
+
+drop policy if exists "Open trades are updatable by owner" on public.open_trades;
+create policy "Open trades are updatable by owner"
+on public.open_trades
+for update
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "Open trades are deletable by owner" on public.open_trades;
+create policy "Open trades are deletable by owner"
+on public.open_trades
 for delete
 using (auth.uid() = user_id);
 

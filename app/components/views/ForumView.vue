@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ImagePreviewDialog from '~/components/ui/ImagePreviewDialog.vue'
 import SectionCard from '~/components/ui/SectionCard.vue'
 import { validateImageFile } from '~/utils/validation'
 
@@ -93,6 +94,9 @@ const commentImage = ref<File | null>(null)
 const commentFileInput = ref<HTMLInputElement | null>(null)
 const selectedTraderId = ref('')
 const isTraderDialogOpen = ref(false)
+const isImagePreviewOpen = ref(false)
+const previewImageUrl = ref<string | null>(null)
+const previewImageTitle = ref('')
 
 function toNumber(value: number | string | null | undefined) {
   return Number(value ?? 0) || 0
@@ -176,6 +180,16 @@ function resolveScreenshotUrl(row: ForumScreenshotRow) {
 function resolveCommentImageUrl(row: ForumCommentRow) {
   return row.image_public_url ||
     (row.image_storage_path ? supabase.storage.from(commentImageBucket).getPublicUrl(row.image_storage_path).data.publicUrl : null)
+}
+
+function openImagePreview(url: string | null, title: string) {
+  if (!url) {
+    return
+  }
+
+  previewImageUrl.value = url
+  previewImageTitle.value = title
+  isImagePreviewOpen.value = true
 }
 
 async function fetchForum() {
@@ -602,19 +616,19 @@ onMounted(() => {
               </div>
               <div class="detail-item">
                 <div class="detail-label">Entry</div>
-                <div class="detail-value">{{ ledger.formatNumber(toNumber(selectedTrade.entry)) }}</div>
+                <div class="detail-value">{{ ledger.formatPrice(toNumber(selectedTrade.entry)) }}</div>
               </div>
               <div class="detail-item">
                 <div class="detail-label">Exit</div>
-                <div class="detail-value">{{ ledger.formatNumber(toNumber(selectedTrade.exit)) }}</div>
+                <div class="detail-value">{{ ledger.formatPrice(toNumber(selectedTrade.exit)) }}</div>
               </div>
               <div class="detail-item">
                 <div class="detail-label">Stop Loss</div>
-                <div class="detail-value">{{ ledger.formatNumber(toNumber(selectedTrade.stop_loss)) }}</div>
+                <div class="detail-value">{{ ledger.formatPrice(toNumber(selectedTrade.stop_loss)) }}</div>
               </div>
               <div class="detail-item">
                 <div class="detail-label">Take Profit</div>
-                <div class="detail-value">{{ ledger.formatNumber(toNumber(selectedTrade.take_profit)) }}</div>
+                <div class="detail-value">{{ ledger.formatPrice(toNumber(selectedTrade.take_profit)) }}</div>
               </div>
               <div class="detail-item">
                 <div class="detail-label">R:R</div>
@@ -642,13 +656,13 @@ onMounted(() => {
                 </div>
               </div>
               <div v-if="selectedScreenshots.length" class="screenshot-grid">
-                <a
+                <button
                   v-for="shot in selectedScreenshots"
                   :key="`${shot.trade_id}-${shot.slot}`"
-                  :href="resolveScreenshotUrl(shot) ?? undefined"
-                  target="_blank"
-                  rel="noreferrer"
+                  type="button"
                   class="shot-card"
+                  :class="{ 'shot-card--interactive': resolveScreenshotUrl(shot) }"
+                  @click="openImagePreview(resolveScreenshotUrl(shot), shot.label)"
                 >
                   <img
                     v-if="resolveScreenshotUrl(shot)"
@@ -660,7 +674,7 @@ onMounted(() => {
                     <v-icon size="26" class="mb-2">mdi-chart-box-outline</v-icon>
                     <div class="font-weight-bold">{{ shot.label }}</div>
                   </div>
-                </a>
+                </button>
               </div>
               <div v-else class="forum-empty forum-empty--compact">
                 No screenshots for this trade.
@@ -881,5 +895,11 @@ onMounted(() => {
         </div>
       </div>
     </PDialog>
+
+    <ImagePreviewDialog
+      v-model:visible="isImagePreviewOpen"
+      :url="previewImageUrl"
+      :title="previewImageTitle"
+    />
   </div>
 </template>

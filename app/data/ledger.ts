@@ -37,6 +37,27 @@ export interface Trade {
   screenshots: TradeScreenshot[]
 }
 
+export interface OpenTrade {
+  id: string
+  date: string
+  time: string
+  symbol: string
+  direction: TradeDirection
+  setup: string
+  session: TradeSession
+  emotion: TradeEmotion
+  entry: number
+  stopLoss: number
+  takeProfit: number
+  size: number
+  riskPercent: number
+  whyEntered: string
+  notes: string
+  screenshotLabel: string
+  screenshotUrl: string | null
+  screenshotStoragePath: string | null
+}
+
 export interface NavigationItem {
   label: string
   to: string

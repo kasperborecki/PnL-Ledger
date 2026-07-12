@@ -1,8 +1,14 @@
 <script setup lang="ts">
+import ImagePreviewDialog from '~/components/ui/ImagePreviewDialog.vue'
+
 const ledger = useLedger()
 const beforeScreenshot = ref<File | null>(null)
 const afterScreenshot = ref<File | null>(null)
 const submitError = ref<string | null>(null)
+const statusNote = ref<string | null>(null)
+const isImagePreviewOpen = ref(false)
+const previewImageUrl = ref<string | null>(null)
+const previewImageTitle = ref('')
 
 const tradeSymbolOptions = computed(() => ledger.symbolOptions.value.filter((option) => option.value !== 'All'))
 const tradeSetupOptions = computed(() => ledger.setupOptions.value.filter((option) => option.value !== 'All'))
@@ -21,9 +27,10 @@ const isEditingTrade = computed(() => Boolean(ledger.editingTradeId.value))
 const dialogTitle = computed(() => (isEditingTrade.value ? 'Edit Trade' : 'New Trade'))
 const footerNote = computed(() =>
   isEditingTrade.value
-    ? 'Leave a screenshot slot empty to keep the current image. Upload a new file to replace it.'
-    : '',
+    ? 'Leave a screenshot slot empty to keep the current image. Upload a new file to replace it, or paste an image with Ctrl+V.'
+    : 'You can also paste screenshots with Ctrl+V while this dialog is open.',
 )
+const dialogNote = computed(() => submitError.value || statusNote.value || footerNote.value)
 
 const directionOptions = ['Long', 'Short']
 const resultOptions = ['Win', 'Loss', 'BE']
@@ -33,7 +40,12 @@ watch(visible, (isOpen) => {
     beforeScreenshot.value = null
     afterScreenshot.value = null
     submitError.value = null
+    statusNote.value = null
+    window.removeEventListener('paste', handlePasteEvent)
+    return
   }
+
+  window.addEventListener('paste', handlePasteEvent)
 })
 
 const beforeScreenshotSummary = computed(() => {
@@ -60,20 +72,116 @@ function closeDialog() {
   beforeScreenshot.value = null
   afterScreenshot.value = null
   submitError.value = null
+  statusNote.value = null
   ledger.closeTradeDialog()
 }
 
 function handleBeforeScreenshotChange(event: Event) {
   const input = event.target as HTMLInputElement
   beforeScreenshot.value = input.files?.[0] ?? null
+  statusNote.value = null
   input.value = ''
 }
 
 function handleAfterScreenshotChange(event: Event) {
   const input = event.target as HTMLInputElement
   afterScreenshot.value = input.files?.[0] ?? null
+  statusNote.value = null
   input.value = ''
 }
+
+function clearBeforeScreenshot() {
+  beforeScreenshot.value = null
+  statusNote.value = null
+}
+
+function clearAfterScreenshot() {
+  afterScreenshot.value = null
+  statusNote.value = null
+}
+
+function extractImageFromClipboard(event: ClipboardEvent) {
+  const items = event.clipboardData?.items
+  if (!items?.length) {
+    return null
+  }
+
+  for (const item of items) {
+    if (item.kind !== 'file' || !item.type.startsWith('image/')) {
+      continue
+    }
+
+    const file = item.getAsFile()
+    if (!file) {
+      continue
+    }
+
+    const extension = file.type.split('/')[1] || 'png'
+    return new File([file], `pasted-screenshot-${Date.now()}.${extension}`, {
+      type: file.type,
+      lastModified: Date.now(),
+    })
+  }
+
+  return null
+}
+
+function handlePasteEvent(event: ClipboardEvent) {
+  if (!visible.value) {
+    return
+  }
+
+  const pastedImage = extractImageFromClipboard(event)
+  if (!pastedImage) {
+    return
+  }
+
+  event.preventDefault()
+  submitError.value = null
+
+  if (!beforeScreenshot.value) {
+    beforeScreenshot.value = pastedImage
+    statusNote.value = 'Pasted image attached to Before trade.'
+    return
+  }
+
+  if (!afterScreenshot.value) {
+    afterScreenshot.value = pastedImage
+    statusNote.value = 'Pasted image attached to After trade.'
+    return
+  }
+
+  statusNote.value = 'Both screenshot slots are already filled.'
+}
+
+function openLocalImagePreview(file: File | null, title: string) {
+  if (!file) {
+    return
+  }
+
+  if (previewImageUrl.value?.startsWith('blob:')) {
+    URL.revokeObjectURL(previewImageUrl.value)
+  }
+
+  previewImageUrl.value = URL.createObjectURL(file)
+  previewImageTitle.value = title
+  isImagePreviewOpen.value = true
+}
+
+watch(isImagePreviewOpen, (isOpen) => {
+  if (!isOpen && previewImageUrl.value?.startsWith('blob:')) {
+    URL.revokeObjectURL(previewImageUrl.value)
+    previewImageUrl.value = null
+  }
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('paste', handlePasteEvent)
+
+  if (previewImageUrl.value?.startsWith('blob:')) {
+    URL.revokeObjectURL(previewImageUrl.value)
+  }
+})
 
 async function submit() {
   submitError.value = null
@@ -315,7 +423,25 @@ async function submit() {
                       {{ beforeScreenshotSummary ? `${beforeScreenshotSummary.name} - ${beforeScreenshotSummary.sizeLabel}` : 'No file selected' }}
                     </div>
                   </div>
-                  <PTag :value="beforeScreenshotSummary ? 'Ready' : 'Empty'" :severity="beforeScreenshotSummary ? 'success' : 'secondary'" />
+                  <div class="d-flex align-center ga-2">
+                    <PButton
+                      v-if="beforeScreenshot"
+                      type="button"
+                      icon="pi pi-search-plus"
+                      severity="secondary"
+                      class="input-dark upload-action-button"
+                      @click="openLocalImagePreview(beforeScreenshot, 'Before trade')"
+                    />
+                    <PButton
+                      v-if="beforeScreenshot"
+                      type="button"
+                      icon="pi pi-times"
+                      severity="secondary"
+                      class="input-dark upload-action-button upload-action-button--danger"
+                      @click="clearBeforeScreenshot"
+                    />
+                    <PTag :value="beforeScreenshotSummary ? 'Ready' : 'Empty'" :severity="beforeScreenshotSummary ? 'success' : 'secondary'" />
+                  </div>
                 </div>
 
                 <div class="upload-item">
@@ -325,7 +451,25 @@ async function submit() {
                       {{ afterScreenshotSummary ? `${afterScreenshotSummary.name} - ${afterScreenshotSummary.sizeLabel}` : 'No file selected' }}
                     </div>
                   </div>
-                  <PTag :value="afterScreenshotSummary ? 'Ready' : 'Empty'" :severity="afterScreenshotSummary ? 'success' : 'secondary'" />
+                  <div class="d-flex align-center ga-2">
+                    <PButton
+                      v-if="afterScreenshot"
+                      type="button"
+                      icon="pi pi-search-plus"
+                      severity="secondary"
+                      class="input-dark upload-action-button"
+                      @click="openLocalImagePreview(afterScreenshot, 'After trade')"
+                    />
+                    <PButton
+                      v-if="afterScreenshot"
+                      type="button"
+                      icon="pi pi-times"
+                      severity="secondary"
+                      class="input-dark upload-action-button upload-action-button--danger"
+                      @click="clearAfterScreenshot"
+                    />
+                    <PTag :value="afterScreenshotSummary ? 'Ready' : 'Empty'" :severity="afterScreenshotSummary ? 'success' : 'secondary'" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -335,7 +479,7 @@ async function submit() {
 
       <div class="trade-dialog-footer">
         <div class="trade-dialog-footer-note" :class="{ negative: submitError }">
-          {{ submitError || footerNote }}
+          {{ dialogNote }}
         </div>
         <div class="trade-dialog-actions">
           <PButton type="button" label="Cancel" severity="secondary" text class="input-dark action-cancel" @click="closeDialog" />
@@ -350,4 +494,10 @@ async function submit() {
       </div>
     </form>
   </PDialog>
+
+  <ImagePreviewDialog
+    v-model:visible="isImagePreviewOpen"
+    :url="previewImageUrl"
+    :title="previewImageTitle"
+  />
 </template>
