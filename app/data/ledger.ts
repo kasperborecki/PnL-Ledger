@@ -77,6 +77,8 @@ export const navigationItems: NavigationItem[] = [
   { label: 'Calendar', to: '/calendar', icon: 'mdi-calendar-month-outline' },
   { label: 'Journal', to: '/journal', icon: 'mdi-notebook-outline' },
   { label: 'Playbook', to: '/playbook', icon: 'mdi-bullseye-arrow' },
+  { label: 'Lot Calculator', to: '/lot-calculator', icon: 'mdi-calculator-variant-outline' },
+  { label: 'Plugins', to: '/plugins', icon: 'mdi-puzzle-outline' },
   { label: 'Settings', to: '/settings', icon: 'mdi-cog-outline' },
 ]
 
@@ -100,6 +102,9 @@ export const symbolOptions: SelectOption[] = [
   { label: 'XAUUSD', value: 'XAUUSD' },
   { label: 'EURUSD', value: 'EURUSD' },
   { label: 'GBPUSD', value: 'GBPUSD' },
+  { label: 'EURCHF', value: 'EURCHF' },
+  { label: 'GBPCHF', value: 'GBPCHF' },
+  { label: 'USDCHF', value: 'USDCHF' },
   { label: 'BTCUSD', value: 'BTCUSD' },
   { label: 'ETHUSD', value: 'ETHUSD' },
   { label: 'US500', value: 'US500' },

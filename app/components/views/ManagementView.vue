@@ -604,10 +604,10 @@ async function saveLookupRow(
       throw updateError
     }
 
-    if (originalName !== name) {
+    if (originalName !== normalizedName) {
       const { error: renameError } = await supabase
         .from('trades')
-        .update({ [collectionField]: name })
+        .update({ [collectionField]: normalizedName })
         .eq(collectionField, originalName)
 
       if (renameError) {
@@ -1036,6 +1036,8 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </SectionCard>
+
+    <PositionCalculator :default-starting-balance="startingBalance" />
 
     <div class="two-col management-grid">
       <SectionCard
