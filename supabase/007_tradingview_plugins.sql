@@ -1,5 +1,5 @@
 -- PnL Ledger - TradingView plugin library
--- Adds user-owned TradingView Pine Script plugins with editable metadata.
+-- Adds a shared TradingView Pine Script library with owner-only management.
 
 create extension if not exists pgcrypto;
 create extension if not exists "uuid-ossp";
@@ -20,7 +20,6 @@ create table if not exists public.tradingview_plugins (
   name text not null,
   description text not null default '',
   code text not null,
-  screenshot_url text,
   tags text[] not null default '{}'::text[],
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -37,10 +36,11 @@ for each row execute function public.set_updated_at();
 alter table public.tradingview_plugins enable row level security;
 
 drop policy if exists "TradingView plugins are readable by owner" on public.tradingview_plugins;
-create policy "TradingView plugins are readable by owner"
+create policy "TradingView plugins are readable by authenticated users"
 on public.tradingview_plugins
 for select
-using (auth.uid() = user_id);
+to authenticated
+using (true);
 
 drop policy if exists "TradingView plugins are insertable by owner" on public.tradingview_plugins;
 create policy "TradingView plugins are insertable by owner"

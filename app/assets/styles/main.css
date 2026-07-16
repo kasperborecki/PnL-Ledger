@@ -950,6 +950,13 @@ a {
   gap: 16px;
 }
 
+.plugin-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .plugin-card {
   display: grid;
   gap: 0;
@@ -1041,6 +1048,17 @@ a {
   padding: 0 16px 16px;
   color: var(--text-muted);
   font-size: 0.86rem;
+}
+
+.plugin-modal-form {
+  display: grid;
+  gap: 16px;
+}
+
+.position-calculator-note {
+  margin-top: 4px;
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 
 .profile-layout {

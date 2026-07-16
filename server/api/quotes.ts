@@ -18,7 +18,7 @@ type QuoteItem = {
   price: number | null
   timestamp: string
   status: QuoteStatus
-  source: 'yahoo' | 'exchangerate.host' | 'none'
+  source: 'yahoo' | 'frankfurter' | 'none'
 }
 
 type QuoteResponse = {
@@ -48,8 +48,12 @@ const YAHOO_TARGETS: Record<string, string[]> = {
 
 const FX_FALLBACK_SYMBOLS = new Set<SupportedSymbol>(['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'EURCHF', 'GBPCHF'])
 
-function parseRequestedSymbols(searchParams: URLSearchParams) {
-  const requested = [...searchParams.getAll('symbol'), ...searchParams.getAll('symbols')]
+function parseRequestedSymbols(query: Record<string, string | string[] | undefined>) {
+  const rawValues = [query.symbol, query.symbols]
+    .flatMap((value) => (Array.isArray(value) ? value : [value]))
+    .filter((value): value is string => typeof value === 'string' && value.length > 0)
+
+  const requested = rawValues
     .flatMap((entry) => entry.split(','))
     .map((entry) => entry.trim().toUpperCase())
     .filter(Boolean)
@@ -112,7 +116,7 @@ async function fetchYahooQuotes(targets: string[]) {
 }
 
 async function fetchFxFallbackRates() {
-  const response = await fetch('https://api.exchangerate.host/latest?base=USD&symbols=EUR,GBP,JPY,CHF')
+  const response = await fetch('https://api.frankfurter.app/latest?from=USD&to=EUR,GBP,JPY,CHF')
   if (!response.ok) {
     throw new Error(`FX fallback request failed with status ${response.status}.`)
   }
@@ -136,19 +140,7 @@ function buildResultItem(symbol: string, price: number | null, timestamp: string
 
 export default defineEventHandler(async (event): Promise<QuoteResponse> => {
   const searchParams = getQuery(event)
-  const urlSearchParams = new URLSearchParams(
-    Object.entries(searchParams)
-      .flatMap(([key, value]) => {
-        if (Array.isArray(value)) {
-          return value.map((item) => [key, String(item)] as const)
-        }
-
-        return [[key, String(value)] as const]
-      })
-      .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`),
-  )
-
-  const requestedSymbols = parseRequestedSymbols(urlSearchParams)
+  const requestedSymbols = parseRequestedSymbols(searchParams)
   if (!requestedSymbols.length) {
     throw createError({
       statusCode: 400,
@@ -176,7 +168,7 @@ export default defineEventHandler(async (event): Promise<QuoteResponse> => {
     if (FX_FALLBACK_SYMBOLS.has(symbol as SupportedSymbol)) {
       const fallbackPrice = resolveFxFallback(symbol as SupportedSymbol, fxFallbackRates)
       if (fallbackPrice !== null) {
-        return buildResultItem(symbol, fallbackPrice, new Date().toISOString(), 'fallback', 'exchangerate.host')
+        return buildResultItem(symbol, fallbackPrice, new Date().toISOString(), 'fallback', 'frankfurter')
       }
     }
 
