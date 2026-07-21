@@ -1413,6 +1413,13 @@ export function useLedger() {
     }
   }
 
+  async function refreshLedgerAndProfile() {
+    await Promise.all([
+      refreshLedger(),
+      auth.refreshAuth(),
+    ])
+  }
+
   async function submitPlaybookDraft() {
     await auth.ensureAuthReady()
     const currentUser = auth.user.value
@@ -1677,7 +1684,7 @@ export function useLedger() {
     selectedDay.value = validated.date
     selectedMonth.value = toMonthKey(validated.date) as CalendarMonth
     isTradeDialogOpen.value = false
-    await refreshLedger()
+    await refreshLedgerAndProfile()
   }
 
   async function submitOpenTradeCloseDraft(screenshots: TradeScreenshotDraft[] = []) {
@@ -1781,7 +1788,7 @@ export function useLedger() {
     selectedDay.value = validated.date
     selectedMonth.value = toMonthKey(validated.date) as CalendarMonth
     isOpenTradeDialogOpen.value = false
-    await refreshLedger()
+    await refreshLedgerAndProfile()
   }
 
   function openTradeDialog(date = selectedDay.value) {
@@ -1913,7 +1920,7 @@ export function useLedger() {
         selectedTradeId.value = ''
       }
 
-      await refreshLedger()
+      await refreshLedgerAndProfile()
     } catch (caught) {
       loadError.value = caught instanceof Error ? caught.message : String(caught)
     }
