@@ -18,7 +18,7 @@ const analyticsKpis = computed(() => [
   },
   {
     label: 'Avg R:R',
-    value: `1 : ${ledger.stats.value.avgRR.toFixed(1)}`,
+    value: `1 : ${ledger.formatRatio(ledger.stats.value.avgRR)}`,
     note: 'Risk control',
     icon: 'mdi-target',
     tone: 'neutral' as const,

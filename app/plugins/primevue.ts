@@ -22,6 +22,10 @@ const AppDropdown = defineComponent({
       h(
         Dropdown,
         {
+          filter: attrs.filter ?? true,
+          filterPlaceholder: attrs.filterPlaceholder ?? 'Search...',
+          resetFilterOnHide: attrs.resetFilterOnHide ?? true,
+          autoFilterFocus: attrs.autoFilterFocus ?? true,
           ...attrs,
           appendTo: attrs.appendTo ?? 'self',
         },

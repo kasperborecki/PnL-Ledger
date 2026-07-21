@@ -13,8 +13,14 @@ const isImagePreviewOpen = ref(false)
 const previewImageUrl = ref<string | null>(null)
 const previewImageTitle = ref('')
 
-function fixed(value: number | undefined, digits = 1) {
-  return Number.isFinite(value) ? Number(value).toFixed(digits) : '-'
+function fixed(value: number | undefined, digits = 2) {
+  if (!Number.isFinite(value)) {
+    return '-'
+  }
+
+  const numeric = Number(value)
+  const factor = 10 ** digits
+  return (Math.trunc(numeric * factor) / factor).toFixed(digits)
 }
 
 async function handleEditTrade() {
@@ -128,7 +134,7 @@ function openImagePreview(url: string | null, title: string) {
             </div>
             <div class="detail-item">
               <div class="detail-label">R:R</div>
-            <div class="detail-value">1 : {{ fixed(props.trade.rr) }}</div>
+            <div class="detail-value">1 : {{ ledger.formatRatio(props.trade.rr) }}</div>
             </div>
             <div class="detail-item">
               <div class="detail-label">Risk</div>

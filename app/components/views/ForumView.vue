@@ -84,6 +84,7 @@ const isLoading = ref(false)
 const isSubmitting = ref(false)
 const forumError = ref<string | null>(null)
 const searchQuery = ref('')
+const forumPage = ref(1)
 const selectedTradeId = ref('')
 const trades = ref<ForumTradeRow[]>([])
 const screenshotsByTrade = ref<Record<string, ForumScreenshotRow[]>>({})
@@ -97,13 +98,25 @@ const isTraderDialogOpen = ref(false)
 const isImagePreviewOpen = ref(false)
 const previewImageUrl = ref<string | null>(null)
 const previewImageTitle = ref('')
+const forumPageSize = 10
 
 function toNumber(value: number | string | null | undefined) {
   return Number(value ?? 0) || 0
 }
 
-function fixed(value: number | string | null | undefined, digits = 1) {
-  return toNumber(value).toFixed(digits)
+function fixed(value: number | string | null | undefined, digits = 2) {
+  const numeric = toNumber(value)
+  const factor = 10 ** digits
+  return (Math.trunc(numeric * factor) / factor).toFixed(digits)
+}
+
+function compareForumTradesDesc(left: ForumTradeRow, right: ForumTradeRow) {
+  const byTradeTime = `${right.trade_date}T${right.trade_time}`.localeCompare(`${left.trade_date}T${left.trade_time}`)
+  if (byTradeTime !== 0) {
+    return byTradeTime
+  }
+
+  return String(right.created_at ?? '').localeCompare(String(left.created_at ?? ''))
 }
 
 function formatTradeDate(date: string, time?: string) {
@@ -212,6 +225,7 @@ async function fetchForum() {
       .select('*')
       .order('trade_date', { ascending: false })
       .order('trade_time', { ascending: false })
+      .order('created_at', { ascending: false })
 
     if (tradeError) {
       throw tradeError
@@ -395,11 +409,12 @@ function handleFileChange(event: Event) {
 
 const filteredTrades = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
+  const source = [...trades.value].sort(compareForumTradesDesc)
   if (!query) {
-    return trades.value
+    return source
   }
 
-  return trades.value.filter((trade) =>
+  return source.filter((trade) =>
     [
       trade.symbol,
       trade.setup,
@@ -416,12 +431,28 @@ const filteredTrades = computed(() => {
   )
 })
 
+const totalForumPages = computed(() => Math.max(1, Math.ceil(filteredTrades.value.length / forumPageSize)))
+const pagedTrades = computed(() => {
+  const page = Math.min(forumPage.value, totalForumPages.value)
+  const start = (page - 1) * forumPageSize
+  return filteredTrades.value.slice(start, start + forumPageSize)
+})
+
 const selectedTrade = computed(() =>
   trades.value.find((trade) => trade.id === selectedTradeId.value) ?? filteredTrades.value[0] ?? null,
 )
 const selectedScreenshots = computed(() => selectedTrade.value ? screenshotsByTrade.value[selectedTrade.value.id] ?? [] : [])
 const selectedComments = computed(() => selectedTrade.value ? commentsByTrade.value[selectedTrade.value.id] ?? [] : [])
 const selectedTradeCountLabel = computed(() => `${filteredTrades.value.length} of ${trades.value.length} trades`)
+const forumPageLabel = computed(() => {
+  if (!filteredTrades.value.length) {
+    return 'Page 0 of 0'
+  }
+
+  const start = (Math.min(forumPage.value, totalForumPages.value) - 1) * forumPageSize + 1
+  const end = Math.min(start + forumPageSize - 1, filteredTrades.value.length)
+  return `Page ${Math.min(forumPage.value, totalForumPages.value)} of ${totalForumPages.value} - ${start}-${end} of ${filteredTrades.value.length}`
+})
 const commentImageName = computed(() => commentImage.value?.name ?? 'Attach image')
 const traderStatsById = computed(() => {
   const grouped = new Map<string, ForumTradeRow[]>()
@@ -461,6 +492,26 @@ const traderStatsById = computed(() => {
   return stats
 })
 const selectedTraderStats = computed(() => traderStatsById.value[selectedTraderId.value] ?? null)
+
+function setForumPage(page: number) {
+  forumPage.value = Math.max(1, Math.min(page, totalForumPages.value))
+}
+
+watch(searchQuery, () => {
+  forumPage.value = 1
+})
+
+watch([filteredTrades, pagedTrades], () => {
+  if (forumPage.value > totalForumPages.value) {
+    forumPage.value = totalForumPages.value
+  }
+
+  if (selectedTradeId.value && filteredTrades.value.some((trade) => trade.id === selectedTradeId.value)) {
+    return
+  }
+
+  selectedTradeId.value = pagedTrades.value[0]?.id ?? filteredTrades.value[0]?.id ?? ''
+})
 
 onMounted(() => {
   void fetchForum()
@@ -504,7 +555,7 @@ onMounted(() => {
 
           <div v-else class="forum-feed">
             <div
-              v-for="trade in filteredTrades"
+              v-for="trade in pagedTrades"
               :key="trade.id"
               role="button"
               tabindex="0"
@@ -557,6 +608,29 @@ onMounted(() => {
                   View trader
                 </button>
               </div>
+            </div>
+          </div>
+
+          <div v-if="filteredTrades.length" class="forum-pagination">
+            <span>{{ forumPageLabel }}</span>
+            <div class="forum-pagination-actions">
+              <PButton
+                type="button"
+                icon="pi pi-chevron-left"
+                label="Previous"
+                class="input-dark action-neutral"
+                :disabled="forumPage <= 1"
+                @click="setForumPage(forumPage - 1)"
+              />
+              <PButton
+                type="button"
+                icon="pi pi-chevron-right"
+                icon-pos="right"
+                label="Next"
+                class="input-dark action-neutral"
+                :disabled="forumPage >= totalForumPages"
+                @click="setForumPage(forumPage + 1)"
+              />
             </div>
           </div>
         </div>
@@ -632,7 +706,7 @@ onMounted(() => {
               </div>
               <div class="detail-item">
                 <div class="detail-label">R:R</div>
-                <div class="detail-value">1 : {{ fixed(selectedTrade.rr) }}</div>
+                <div class="detail-value">1 : {{ ledger.formatRatio(selectedTrade.rr) }}</div>
               </div>
               <div class="detail-item">
                 <div class="detail-label">Risk</div>
@@ -816,7 +890,7 @@ onMounted(() => {
             <p>
               {{ selectedTraderStats.totalTrades }} trades -
               {{ ledger.formatNumber(selectedTraderStats.winRate) }}% win rate -
-              avg R:R 1 : {{ selectedTraderStats.avgRR.toFixed(1) }}
+              avg R:R 1 : {{ ledger.formatRatio(selectedTraderStats.avgRR) }}
             </p>
           </div>
           <div class="forum-profile-hero-pnl" :class="selectedTraderStats.netPnl >= 0 ? 'positive' : 'negative'">
@@ -841,7 +915,7 @@ onMounted(() => {
           </div>
           <div class="setup-metric">
             <div class="label">Avg R:R</div>
-            <div class="value">1 : {{ selectedTraderStats.avgRR.toFixed(1) }}</div>
+            <div class="value">1 : {{ ledger.formatRatio(selectedTraderStats.avgRR) }}</div>
           </div>
           <div class="setup-metric">
             <div class="label">W/L/BE</div>

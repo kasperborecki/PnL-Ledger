@@ -71,7 +71,7 @@ function directionSeverity(direction: Trade['direction']) {
 
       <PColumn field="rr" header="R:R">
         <template #body="{ data }">
-          1 : {{ data.rr.toFixed(1) }}
+          1 : {{ ledger.formatRatio(data.rr) }}
         </template>
       </PColumn>
 

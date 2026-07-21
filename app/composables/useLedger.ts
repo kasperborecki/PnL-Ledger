@@ -225,6 +225,23 @@ const preciseDecimal = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 8,
 })
 
+function formatTruncatedDecimal(value: number | string | null | undefined, digits = 2) {
+  const numeric = Number(value ?? 0)
+  if (!Number.isFinite(numeric)) {
+    return '-'
+  }
+
+  const sign = numeric < 0 ? '-' : ''
+  const raw = Math.abs(numeric).toString()
+  if (raw.includes('e')) {
+    const factor = 10 ** digits
+    return `${sign}${(Math.trunc(Math.abs(numeric) * factor) / factor).toFixed(digits)}`
+  }
+
+  const [integer, fraction = ''] = raw.split('.')
+  return `${sign}${integer}.${fraction.padEnd(digits, '0').slice(0, digits)}`
+}
+
 const weekOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
 function todayKey() {
@@ -707,7 +724,7 @@ function buildPlaybookCard(draft: PlaybookDraft): PlaybookCard {
     grade: draft.grade,
     expectancy: trades ? pnl / trades : 0,
     expectancyLabel: formatSign(trades ? pnl / trades : 0),
-    avgRRLabel: `1 : ${avgRR.toFixed(1)}`,
+    avgRRLabel: `1 : ${formatTruncatedDecimal(avgRR)}`,
     profitFactor,
   }
 }
@@ -791,7 +808,7 @@ function toPlaybookCard(row: DbPlaybookRow): PlaybookCard {
     grade: row.grade,
     expectancy: toNumber(row.expectancy),
     expectancyLabel: formatSign(toNumber(row.expectancy)),
-    avgRRLabel: `1 : ${avgRR.toFixed(1)}`,
+    avgRRLabel: `1 : ${formatTruncatedDecimal(avgRR)}`,
     profitFactor,
   }
 }
@@ -2194,7 +2211,7 @@ export function useLedger() {
     setupBars.value.map((item) => ({
       ...item,
       winRateLabel: `${decimal.format(item.winRate)}%`,
-      avgRRLabel: `1 : ${item.avgRR.toFixed(1)}`,
+      avgRRLabel: `1 : ${formatTruncatedDecimal(item.avgRR)}`,
       expectancy: item.trades ? item.pnl / item.trades : 0,
       expectancyLabel: formatSign(item.trades ? item.pnl / item.trades : 0),
       profitFactor: item.losses === 0 ? 'Infinity' : (item.wins ? item.wins / item.losses : 0).toFixed(2),
@@ -2273,7 +2290,7 @@ export function useLedger() {
     },
     {
       label: 'Avg R:R',
-      value: `1 : ${stats.value.avgRR.toFixed(1)}`,
+      value: `1 : ${formatTruncatedDecimal(stats.value.avgRR)}`,
       note: `Hold ${stats.value.avgHoldMinutes}m`,
       icon: 'mdi-trending-up',
       tone: 'neutral',
@@ -2391,6 +2408,7 @@ export function useLedger() {
     formatPercent: (value: number) => percent.format(value),
     formatSignedMoney: formatSign,
     formatNumber: (value: number) => decimal.format(value),
+    formatRatio: (value: number | string | null | undefined) => formatTruncatedDecimal(value),
     formatPrice: (value: number) => preciseDecimal.format(value),
     getMonthLabel,
   }
