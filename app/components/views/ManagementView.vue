@@ -995,11 +995,6 @@ onBeforeUnmount(() => {
         <div class="detail-value">{{ activeStrategyCount }}/{{ strategyRows.length }}</div>
         <div class="muted">Setups available in the trade composer</div>
       </div>
-      <div class="management-stat glass-card">
-        <div class="detail-label">Emotions</div>
-        <div class="detail-value">{{ activeEmotionCount }}/{{ emotionRows.length }}</div>
-        <div class="muted">Mood labels used during journaling</div>
-      </div>
     </div>
 
     <SectionCard
@@ -1431,125 +1426,6 @@ onBeforeUnmount(() => {
         </div>
       </SectionCard>
 
-      <SectionCard
-        title="Emotion Dictionary"
-        subtitle="Track the mental state that influenced each trade."
-        class="mt-6"
-      >
-        <div class="stack">
-          <label class="field">
-            <span>Search emotions</span>
-            <PInputText
-              v-model="emotionSearch"
-              class="input-dark"
-              placeholder="Calm, frustration, notes..."
-            />
-          </label>
-
-          <div class="management-form management-form--grid">
-            <label class="field">
-              <span>Name</span>
-              <PInputText
-                v-model="emotionForm.name"
-                class="input-dark"
-                placeholder="Calm"
-              />
-            </label>
-
-            <label class="field">
-              <span>Sort order</span>
-              <input
-                v-model.number="emotionForm.sortOrder"
-                type="number"
-                step="1"
-                class="form-input form-input--number"
-              >
-            </label>
-
-            <label class="field field--full">
-              <span>Description</span>
-              <PTextarea
-                v-model="emotionForm.description"
-                auto-resize
-                rows="3"
-                class="input-dark"
-                placeholder="How this emotion affects your execution..."
-              />
-            </label>
-
-            <label class="field field--full">
-              <span>Status</span>
-              <PSelectButton
-                v-model="emotionForm.isActive"
-                class="input-dark"
-                :options="[
-                  { label: 'Active', value: true },
-                  { label: 'Hidden', value: false },
-                ]"
-                option-label="label"
-                option-value="value"
-              />
-            </label>
-          </div>
-
-          <div class="management-action-row">
-            <div class="muted">
-              {{ editingEmotionName ? `Editing ${editingEmotionName}` : 'Add an emotion and it will appear in trade logging.' }}
-            </div>
-            <div class="d-flex ga-2 flex-wrap">
-              <PButton
-                v-if="editingEmotionName"
-                label="Cancel edit"
-                severity="secondary"
-                text
-                class="input-dark action-cancel"
-                @click="resetEmotionForm"
-              />
-              <PButton
-                :label="editingEmotionName ? 'Update emotion' : 'Add emotion'"
-                icon="pi pi-save"
-                severity="success"
-                class="input-dark action-primary"
-                :loading="savingEmotion"
-                @click="saveEmotion"
-              />
-            </div>
-          </div>
-
-          <div class="management-list management-list--scroll">
-            <div
-              v-for="row in filteredEmotions"
-              :key="row.name"
-              class="management-row management-row--instrument"
-            >
-              <div>
-                <div class="management-row-title">{{ row.name }}</div>
-                <div class="management-row-meta">order {{ row.sort_order }}</div>
-                <div class="management-row-note">{{ row.description || 'No description' }}</div>
-              </div>
-
-              <PTag :value="row.is_active ? 'Active' : 'Hidden'" :severity="row.is_active ? 'success' : 'secondary'" />
-
-              <div class="d-flex ga-2 flex-wrap justify-end">
-                <PButton
-                  icon="pi pi-pencil"
-                  severity="warning"
-                  text
-                  class="input-dark action-edit"
-                  @click="editEmotion(row)"
-                />
-                <PButton
-                  :label="row.is_active ? 'Hide' : 'Restore'"
-                  :severity="row.is_active ? 'danger' : 'secondary'"
-                  text
-                  :class="row.is_active ? 'input-dark action-danger' : 'input-dark action-neutral'"
-                  @click="toggleLookupActive('trade_emotions', row.name, !row.is_active)"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </SectionCard>
     </div>
   </div>
 </template>

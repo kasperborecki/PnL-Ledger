@@ -96,8 +96,8 @@ const dashboardSignals = computed(() => [
     note: 'Per trade',
   },
   {
-    label: 'Avg Hold',
-    value: `${ledger.stats.value.avgHoldMinutes}m`,
+    label: 'Avg Duration',
+    value: ledger.formatDuration(ledger.stats.value.avgHoldMinutes),
     note: 'Execution pace',
   },
   {

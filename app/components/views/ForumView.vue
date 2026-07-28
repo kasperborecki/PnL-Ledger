@@ -99,6 +99,8 @@ const isImagePreviewOpen = ref(false)
 const previewImageUrl = ref<string | null>(null)
 const previewImageTitle = ref('')
 const forumPageSize = 10
+const traderRecentPage = ref(1)
+const traderRecentPageSize = 5
 
 function toNumber(value: number | string | null | undefined) {
   return Number(value ?? 0) || 0
@@ -169,6 +171,7 @@ function directionSeverity(direction: ForumTradeRow['direction']) {
 
 function openTraderProfile(userId: string) {
   selectedTraderId.value = userId
+  traderRecentPage.value = 1
   isTraderDialogOpen.value = true
 }
 
@@ -420,7 +423,6 @@ const filteredTrades = computed(() => {
       trade.setup,
       trade.direction,
       trade.session,
-      trade.emotion,
       trade.result,
       trade.notes,
       profileName(trade.user_id),
@@ -468,9 +470,7 @@ const traderStatsById = computed(() => {
     const breakeven = items.filter((trade) => trade.result === 'BE').length
     const netPnl = items.reduce((sum, trade) => sum + toNumber(trade.net_pnl), 0)
     const sortedByPnl = [...items].sort((left, right) => toNumber(right.net_pnl) - toNumber(left.net_pnl))
-    const recentTrades = [...items]
-      .sort((left, right) => `${right.trade_date}T${right.trade_time}`.localeCompare(`${left.trade_date}T${left.trade_time}`))
-      .slice(0, 8)
+    const recentTrades = [...items].sort(compareForumTradesDesc)
 
     stats[userId] = {
       userId,
@@ -492,13 +492,47 @@ const traderStatsById = computed(() => {
   return stats
 })
 const selectedTraderStats = computed(() => traderStatsById.value[selectedTraderId.value] ?? null)
+const traderRecentPageCount = computed(() =>
+  Math.max(1, Math.ceil((selectedTraderStats.value?.recentTrades.length ?? 0) / traderRecentPageSize)),
+)
+const pagedTraderRecentTrades = computed(() => {
+  const items = selectedTraderStats.value?.recentTrades ?? []
+  const page = Math.min(traderRecentPage.value, traderRecentPageCount.value)
+  const start = (page - 1) * traderRecentPageSize
+  return items.slice(start, start + traderRecentPageSize)
+})
+const traderRecentSummary = computed(() => {
+  const total = selectedTraderStats.value?.recentTrades.length ?? 0
+  if (!total) {
+    return 'No trades yet'
+  }
+
+  const page = Math.min(traderRecentPage.value, traderRecentPageCount.value)
+  const start = (page - 1) * traderRecentPageSize + 1
+  const end = Math.min(start + traderRecentPageSize - 1, total)
+  return `${start}-${end} of ${total}`
+})
 
 function setForumPage(page: number) {
   forumPage.value = Math.max(1, Math.min(page, totalForumPages.value))
 }
 
+function setTraderRecentPage(page: number) {
+  traderRecentPage.value = Math.max(1, Math.min(page, traderRecentPageCount.value))
+}
+
 watch(searchQuery, () => {
   forumPage.value = 1
+})
+
+watch(selectedTraderId, () => {
+  traderRecentPage.value = 1
+})
+
+watch(selectedTraderStats, () => {
+  if (traderRecentPage.value > traderRecentPageCount.value) {
+    traderRecentPage.value = traderRecentPageCount.value
+  }
 })
 
 watch([filteredTrades, pagedTrades], () => {
@@ -713,12 +747,8 @@ onMounted(() => {
                 <div class="detail-value">{{ fixed(selectedTrade.risk_percent) }}%</div>
               </div>
               <div class="detail-item">
-                <div class="detail-label">Hold</div>
-                <div class="detail-value">{{ selectedTrade.hold_minutes }}m</div>
-              </div>
-              <div class="detail-item">
-                <div class="detail-label">Emotion</div>
-                <div class="detail-value">{{ selectedTrade.emotion }}</div>
+                <div class="detail-label">Duration</div>
+                <div class="detail-value">{{ ledger.formatDuration(selectedTrade.hold_minutes) }}</div>
               </div>
             </div>
 
@@ -922,8 +952,8 @@ onMounted(() => {
             <div class="value">{{ selectedTraderStats.wins }}/{{ selectedTraderStats.losses }}/{{ selectedTraderStats.breakeven }}</div>
           </div>
           <div class="setup-metric">
-            <div class="label">Avg Hold</div>
-            <div class="value">{{ selectedTraderStats.avgHoldMinutes }}m</div>
+            <div class="label">Avg Duration</div>
+            <div class="value">{{ ledger.formatDuration(selectedTraderStats.avgHoldMinutes) }}</div>
           </div>
           <div class="setup-metric">
             <div class="label">Best Trade</div>
@@ -952,20 +982,53 @@ onMounted(() => {
         </div>
 
         <div class="forum-profile-recent">
-          <div class="detail-label">Recent trades</div>
-          <button
-            v-for="trade in selectedTraderStats.recentTrades"
-            :key="trade.id"
-            type="button"
-            class="forum-profile-trade"
-            @click="selectedTradeId = trade.id; isTraderDialogOpen = false"
-          >
-            <span>{{ trade.symbol }} {{ trade.direction }} - {{ trade.setup }}</span>
-            <span>{{ formatTradeDate(trade.trade_date, trade.trade_time) }}</span>
-            <strong :class="toNumber(trade.net_pnl) >= 0 ? 'positive' : 'negative'">
-              {{ ledger.formatSignedMoney(toNumber(trade.net_pnl)) }}
-            </strong>
-          </button>
+          <div class="forum-profile-recent-head">
+            <div>
+              <div class="detail-label">Recent trades</div>
+              <div class="forum-profile-recent-meta">{{ traderRecentSummary }}</div>
+            </div>
+            <div class="forum-profile-recent-actions">
+              <PButton
+                type="button"
+                icon="pi pi-chevron-left"
+                severity="secondary"
+                text
+                class="input-dark"
+                :disabled="traderRecentPage <= 1"
+                @click="setTraderRecentPage(traderRecentPage - 1)"
+              />
+              <span class="forum-profile-recent-page">Page {{ traderRecentPage }} / {{ traderRecentPageCount }}</span>
+              <PButton
+                type="button"
+                icon="pi pi-chevron-right"
+                severity="secondary"
+                text
+                class="input-dark"
+                :disabled="traderRecentPage >= traderRecentPageCount"
+                @click="setTraderRecentPage(traderRecentPage + 1)"
+              />
+            </div>
+          </div>
+
+          <div class="forum-profile-recent-box">
+            <button
+              v-for="trade in pagedTraderRecentTrades"
+              :key="trade.id"
+              type="button"
+              class="forum-profile-trade"
+              @click="selectedTradeId = trade.id; isTraderDialogOpen = false"
+            >
+              <span>{{ trade.symbol }} {{ trade.direction }} - {{ trade.setup }}</span>
+              <span>{{ formatTradeDate(trade.trade_date, trade.trade_time) }}</span>
+              <strong :class="toNumber(trade.net_pnl) >= 0 ? 'positive' : 'negative'">
+                {{ ledger.formatSignedMoney(toNumber(trade.net_pnl)) }}
+              </strong>
+            </button>
+
+            <div v-if="!pagedTraderRecentTrades.length" class="forum-empty forum-empty--compact">
+              No trades to show for this trader.
+            </div>
+          </div>
         </div>
       </div>
     </PDialog>

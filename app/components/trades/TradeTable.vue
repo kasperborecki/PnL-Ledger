@@ -90,9 +90,9 @@ function directionSeverity(direction: Trade['direction']) {
       </PColumn>
 
       <PColumn field="session" header="Session" />
-      <PColumn field="holdMinutes" header="Hold">
+      <PColumn field="holdMinutes" header="Duration">
         <template #body="{ data }">
-          {{ data.holdMinutes }}m
+          {{ ledger.formatDuration(data.holdMinutes) }}
         </template>
       </PColumn>
     </PDataTable>

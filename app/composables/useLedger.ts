@@ -1,6 +1,5 @@
 import { computed, onMounted, ref } from 'vue'
 import {
-  emotionOptions as fallbackEmotionOptions,
   exportOptions,
   navigationItems,
   rangeOptions,
@@ -24,10 +23,13 @@ import {
 type Timeframe = 'Today' | 'Week' | 'Month' | 'All'
 type CalendarMonth = `${number}-${string}`
 type ExportFormat = 'csv' | 'pdf' | 'report'
+const TRADE_EMOTION_PLACEHOLDER = 'N/A'
 
 type TradeDraft = {
   date: string
   time: string
+  closeDate: string
+  closeTime: string
   symbol: string
   direction: Trade['direction']
   setup: string
@@ -37,7 +39,6 @@ type TradeDraft = {
   netPnl: number
   commission: number
   rr: number
-  holdMinutes: number
   entry: number
   exit: number
   stopLoss: number
@@ -244,8 +245,69 @@ function formatTruncatedDecimal(value: number | string | null | undefined, digit
 
 const weekOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
+function padNumber(value: number) {
+  return String(value).padStart(2, '0')
+}
+
+function getCurrentDateTimeParts(dateOverride?: string) {
+  const now = new Date()
+  return {
+    date: dateOverride ?? `${now.getFullYear()}-${padNumber(now.getMonth() + 1)}-${padNumber(now.getDate())}`,
+    time: `${padNumber(now.getHours())}:${padNumber(now.getMinutes())}`,
+  }
+}
+
 function todayKey() {
-  return new Date().toISOString().slice(0, 10)
+  return getCurrentDateTimeParts().date
+}
+
+function toLocalDateTime(date: string, time: string) {
+  const [year, month, day] = date.split('-').map(Number)
+  const [hours, minutes] = time.split(':').map(Number)
+  return new Date(year, (month || 1) - 1, day || 1, hours || 0, minutes || 0, 0, 0)
+}
+
+function addMinutesToDateTime(date: string, time: string, minutes: number) {
+  const next = toLocalDateTime(date, time)
+  next.setMinutes(next.getMinutes() + Math.max(0, Math.round(minutes || 0)))
+
+  return {
+    date: `${next.getFullYear()}-${padNumber(next.getMonth() + 1)}-${padNumber(next.getDate())}`,
+    time: `${padNumber(next.getHours())}:${padNumber(next.getMinutes())}`,
+  }
+}
+
+function calculateDurationMinutes(startDate: string, startTime: string, endDate: string, endTime: string) {
+  const start = toLocalDateTime(startDate, startTime)
+  const end = toLocalDateTime(endDate, endTime)
+  const deltaMinutes = Math.round((end.getTime() - start.getTime()) / (1000 * 60))
+
+  if (deltaMinutes < 0) {
+    throw new Error('Close date and time cannot be earlier than the trade start.')
+  }
+
+  return deltaMinutes
+}
+
+function formatDurationMinutes(value: number | string | null | undefined) {
+  const totalMinutes = Math.max(0, Math.round(Number(value ?? 0) || 0))
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  return `${hours}h ${padNumber(minutes)} min`
+}
+
+function resolveTradeSession(time: string): Trade['session'] {
+  const hour = Number.parseInt(time.slice(0, 2), 10)
+
+  if (hour >= 0 && hour < 8) {
+    return 'Asia'
+  }
+
+  if (hour >= 8 && hour < 14) {
+    return 'London'
+  }
+
+  return 'New York'
 }
 
 function toMonthKey(date: string) {
@@ -261,19 +323,22 @@ function shiftMonth(monthKey: string, delta: number) {
 }
 
 function createDraft(date = todayKey()): TradeDraft {
+  const start = getCurrentDateTimeParts(date)
+  const close = addMinutesToDateTime(start.date, start.time, 30)
   return {
-    date,
-    time: '09:30',
+    date: start.date,
+    time: start.time,
+    closeDate: close.date,
+    closeTime: close.time,
     symbol: 'NAS100',
     direction: 'Long',
     setup: 'Breakout',
-    session: 'New York',
-    emotion: 'Calm',
+    session: resolveTradeSession(start.time),
+    emotion: TRADE_EMOTION_PLACEHOLDER,
     result: 'Win',
     netPnl: 0,
     commission: 0,
     rr: 2,
-    holdMinutes: 30,
     entry: 0,
     exit: 0,
     stopLoss: 0,
@@ -289,14 +354,15 @@ function createDraft(date = todayKey()): TradeDraft {
 }
 
 function createOpenTradeDraft(date = todayKey()): OpenTradeDraft {
+  const start = getCurrentDateTimeParts(date)
   return {
-    date,
-    time: '09:30',
+    date: start.date,
+    time: start.time,
     symbol: 'NAS100',
     direction: 'Long',
     setup: 'Breakout',
-    session: 'New York',
-    emotion: 'Calm',
+    session: resolveTradeSession(start.time),
+    emotion: TRADE_EMOTION_PLACEHOLDER,
     entry: 0,
     stopLoss: 0,
     takeProfit: 0,
@@ -339,9 +405,12 @@ function createPlaybookDraft(): PlaybookDraft {
 }
 
 function createDraftFromTrade(trade: Trade): TradeDraft {
+  const close = addMinutesToDateTime(trade.date, trade.time, trade.holdMinutes)
   return {
     date: trade.date,
     time: trade.time,
+    closeDate: close.date,
+    closeTime: close.time,
     symbol: trade.symbol,
     direction: trade.direction,
     setup: trade.setup,
@@ -351,7 +420,6 @@ function createDraftFromTrade(trade: Trade): TradeDraft {
     netPnl: trade.netPnl,
     commission: trade.commission,
     rr: trade.rr,
-    holdMinutes: trade.holdMinutes,
     entry: trade.entry,
     exit: trade.exit,
     stopLoss: trade.stopLoss,
@@ -367,9 +435,12 @@ function createDraftFromTrade(trade: Trade): TradeDraft {
 }
 
 function createDraftFromOpenTrade(trade: OpenTrade): TradeDraft {
+  const close = getCurrentDateTimeParts()
   return {
     date: trade.date,
     time: trade.time,
+    closeDate: close.date,
+    closeTime: close.time,
     symbol: trade.symbol,
     direction: trade.direction,
     setup: trade.setup,
@@ -379,7 +450,6 @@ function createDraftFromOpenTrade(trade: OpenTrade): TradeDraft {
     netPnl: 0,
     commission: 0,
     rr: 2,
-    holdMinutes: 30,
     entry: trade.entry,
     exit: 0,
     stopLoss: trade.stopLoss,
@@ -413,14 +483,11 @@ function validateTradeSubmission(
   screenshots: TradeScreenshotDraft[],
   allowedSymbols: string[],
   allowedSetups: string[],
-  allowedEmotions: string[],
 ) {
   const date = requireDate(draft.date, 'Trade date')
   const time = requireTime(draft.time, 'Trade time')
   const symbol = requireChoice(draft.symbol, 'Symbol', allowedSymbols)
   const setup = requireChoice(draft.setup, 'Setup', allowedSetups)
-  const session = requireChoice(draft.session, 'Session', sessionOptions.map((option) => option.value).filter((value) => value !== 'All'))
-  const emotion = requireChoice(draft.emotion, 'Emotion', allowedEmotions)
   const result = requireChoice(draft.result, 'Result', ['Win', 'Loss', 'BE'])
 
   if (!/^[A-Z0-9/_-]{1,20}$/.test(symbol)) {
@@ -430,15 +497,16 @@ function validateTradeSubmission(
   return {
     date,
     time,
+    closeDate: requireDate(draft.closeDate, 'Close date'),
+    closeTime: requireTime(draft.closeTime, 'Close time'),
     symbol,
     setup,
-    session,
-    emotion,
+    session: resolveTradeSession(time),
+    emotion: TRADE_EMOTION_PLACEHOLDER,
     result,
     netPnl: requireNumber(draft.netPnl, 'P&L', { min: -1_000_000_000, max: 1_000_000_000 }),
     commission: requireNumber(draft.commission, 'Commission', { min: 0, max: 1_000_000_000 }),
     rr: requireNumber(draft.rr, 'R:R', { min: 0, max: 1_000_000_000 }),
-    holdMinutes: requireNumber(draft.holdMinutes, 'Hold minutes', { min: 0, integer: true, max: 1_000_000 }),
     entry: requireNumber(draft.entry, 'Entry', { min: 0, max: 1_000_000_000 }),
     exit: requireNumber(draft.exit, 'Exit', { min: 0, max: 1_000_000_000 }),
     stopLoss: requireNumber(draft.stopLoss, 'Stop loss', { min: 0, max: 1_000_000_000 }),
@@ -462,7 +530,6 @@ function validateOpenTradeSubmission(
   screenshot: OpenTradeScreenshotDraft,
   allowedSymbols: string[],
   allowedSetups: string[],
-  allowedEmotions: string[],
   options: {
     requireScreenshot?: boolean
   } = {},
@@ -472,8 +539,6 @@ function validateOpenTradeSubmission(
   const symbol = requireChoice(draft.symbol, 'Symbol', allowedSymbols)
   const direction = requireChoice(draft.direction, 'Direction', ['Long', 'Short']) as Trade['direction']
   const setup = requireChoice(draft.setup, 'Setup', allowedSetups)
-  const session = requireChoice(draft.session, 'Session', sessionOptions.map((option) => option.value).filter((value) => value !== 'All'))
-  const emotion = requireChoice(draft.emotion, 'Emotion', allowedEmotions)
 
   if (!/^[A-Z0-9/_-]{1,20}$/.test(symbol)) {
     throw new Error('Symbol can only contain letters, numbers, slash, dash or underscore.')
@@ -485,8 +550,8 @@ function validateOpenTradeSubmission(
     symbol,
     direction,
     setup,
-    session,
-    emotion,
+    session: resolveTradeSession(time),
+    emotion: TRADE_EMOTION_PLACEHOLDER,
     entry: requireNumber(draft.entry, 'Entry', { min: 0, max: 1_000_000_000 }),
     stopLoss: requireNumber(draft.stopLoss, 'Stop loss', { min: 0, max: 1_000_000_000 }),
     takeProfit: requireNumber(draft.takeProfit, 'Take profit', { min: 0, max: 1_000_000_000 }),
@@ -829,7 +894,6 @@ function buildCsv(trades: Trade[]) {
     'direction',
     'setup',
     'session',
-    'emotion',
     'result',
     'netPnl',
     'grossPnl',
@@ -856,7 +920,6 @@ function buildCsv(trades: Trade[]) {
     trade.direction,
     trade.setup,
     trade.session,
-    trade.emotion,
     trade.result,
     trade.netPnl,
     trade.grossPnl,
@@ -1023,12 +1086,10 @@ export function useLedger() {
   const selectedSymbol = useState('pnl-ledger-symbol', () => 'All')
   const selectedSetup = useState('pnl-ledger-setup', () => 'All')
   const selectedSession = useState('pnl-ledger-session', () => 'All')
-  const selectedEmotion = useState('pnl-ledger-emotion', () => 'All')
   const tradeItems = useState<Trade[]>('pnl-ledger-trades', () => [])
   const openTradeItems = useState<OpenTrade[]>('pnl-ledger-open-trades', () => [])
   const savedPlaybookCards = useState<PlaybookCard[]>('pnl-ledger-saved-playbook', () => [])
   const setupRows = useState<DbLookupRow[]>('pnl-ledger-setup-rows', () => [])
-  const emotionRows = useState<DbLookupRow[]>('pnl-ledger-emotion-rows', () => [])
   const instrumentRows = useState<DbInstrumentRow[]>('pnl-ledger-instruments', () => [])
   const selectedTradeId = useState('pnl-ledger-trade', () => '')
   const selectedOpenTradeId = useState('pnl-ledger-open-trade', () => '')
@@ -1040,9 +1101,9 @@ export function useLedger() {
   const openTradeDialogMode = useState<'start' | 'edit' | 'close'>('pnl-ledger-open-trade-dialog-mode', () => 'start')
   const editingOpenTradeId = useState<string | null>('pnl-ledger-editing-open-trade', () => null)
   const closingOpenTradeId = useState<string | null>('pnl-ledger-closing-open-trade', () => null)
-  const newTradeDraft = useState<TradeDraft>('pnl-ledger-trade-draft', () => createDraft(selectedDay.value))
-  const openTradeDraft = useState<OpenTradeDraft>('pnl-ledger-open-trade-draft', () => createOpenTradeDraft(selectedDay.value))
-  const closeTradeDraft = useState<TradeDraft>('pnl-ledger-close-trade-draft', () => createDraft(selectedDay.value))
+  const newTradeDraft = useState<TradeDraft>('pnl-ledger-trade-draft', () => createDraft())
+  const openTradeDraft = useState<OpenTradeDraft>('pnl-ledger-open-trade-draft', () => createOpenTradeDraft())
+  const closeTradeDraft = useState<TradeDraft>('pnl-ledger-close-trade-draft', () => createDraft())
   const playbookDraft = useState<PlaybookDraft>('pnl-ledger-playbook-draft', () => createPlaybookDraft())
   const exportFormat = useState<ExportFormat>('pnl-ledger-export-format', () => 'csv')
   const searchQuery = ref('')
@@ -1055,7 +1116,6 @@ export function useLedger() {
     openTradeItems.value = []
     savedPlaybookCards.value = []
     setupRows.value = []
-    emotionRows.value = []
     selectedTradeId.value = ''
     selectedOpenTradeId.value = ''
     editingTradeId.value = null
@@ -1069,7 +1129,6 @@ export function useLedger() {
   function normalizeFilterSelections() {
     const symbolValues = new Set(symbolOptions.value.map((option) => option.value))
     const setupValues = new Set(setupOptions.value.map((option) => option.value))
-    const emotionValues = new Set(emotionOptions.value.map((option) => option.value))
 
     if (!symbolValues.has(selectedSymbol.value)) {
       selectedSymbol.value = 'All'
@@ -1077,10 +1136,6 @@ export function useLedger() {
 
     if (!setupValues.has(selectedSetup.value)) {
       selectedSetup.value = 'All'
-    }
-
-    if (!emotionValues.has(selectedEmotion.value)) {
-      selectedEmotion.value = 'All'
     }
 
     if (!sessionOptions.some((option) => option.value === selectedSession.value)) {
@@ -1275,7 +1330,6 @@ export function useLedger() {
         { data: openTradeRows, error: openTradeError },
         { data: playbookRows, error: playbookError },
         { data: setupRowsData, error: setupError },
-        { data: emotionRowsData, error: emotionError },
         { data: instrumentRowsData, error: instrumentError },
       ] = await Promise.all([
         supabase
@@ -1301,11 +1355,6 @@ export function useLedger() {
           .order('sort_order', { ascending: true, nullsFirst: false })
           .order('name', { ascending: true }),
         supabase
-          .from('trade_emotions')
-          .select('*')
-          .order('sort_order', { ascending: true, nullsFirst: false })
-          .order('name', { ascending: true }),
-        supabase
           .from('instruments')
           .select('*')
           .eq('is_active', true)
@@ -1321,9 +1370,6 @@ export function useLedger() {
       if (setupError) {
         console.warn('Failed to load trade setups dictionary.', setupError)
       }
-      if (emotionError) {
-        console.warn('Failed to load trade emotions dictionary.', emotionError)
-      }
       if (instrumentError) {
         console.warn('Failed to load instruments dictionary.', instrumentError)
       }
@@ -1332,7 +1378,6 @@ export function useLedger() {
       const openRows = (openTradeRows ?? []) as DbOpenTradeRow[]
       instrumentRows.value = instrumentError ? [] : (instrumentRowsData ?? []) as DbInstrumentRow[]
       setupRows.value = setupError ? [] : (setupRowsData ?? []) as DbLookupRow[]
-      emotionRows.value = emotionError ? [] : (emotionRowsData ?? []) as DbLookupRow[]
       const tradeIds = rows.map((row) => row.id)
       let screenshotMap = new Map<string, TradeScreenshot[]>()
 
@@ -1465,9 +1510,8 @@ export function useLedger() {
     const draft = openTradeDraft.value
     const allowedSymbols = symbolOptions.value.map((option) => option.value).filter((value) => value !== 'All')
     const allowedSetups = setupOptions.value.map((option) => option.value).filter((value) => value !== 'All')
-    const allowedEmotions = emotionOptions.value.map((option) => option.value).filter((value) => value !== 'All')
     const isEditingOpenTrade = Boolean(editingOpenTradeId.value)
-    const validated = validateOpenTradeSubmission(draft, screenshot, allowedSymbols, allowedSetups, allowedEmotions, {
+    const validated = validateOpenTradeSubmission(draft, screenshot, allowedSymbols, allowedSetups, {
       requireScreenshot: !isEditingOpenTrade,
     })
 
@@ -1478,8 +1522,8 @@ export function useLedger() {
       trade_time: validated.time,
       direction: validated.direction,
       setup: validated.setup,
-      session: validated.session,
-      emotion: validated.emotion,
+      session: resolveTradeSession(validated.time),
+      emotion: TRADE_EMOTION_PLACEHOLDER,
       entry: validated.entry,
       stop_loss: validated.stopLoss,
       take_profit: validated.takeProfit,
@@ -1590,7 +1634,7 @@ export function useLedger() {
       }
     }
 
-    openTradeDraft.value = createOpenTradeDraft(validated.date)
+    openTradeDraft.value = createOpenTradeDraft()
     editingOpenTradeId.value = null
     selectedOpenTradeId.value = openTradeId
     selectedTradeId.value = ''
@@ -1611,8 +1655,7 @@ export function useLedger() {
     const supabase = useSupabase()
     const allowedSymbols = symbolOptions.value.map((option) => option.value).filter((value) => value !== 'All')
     const allowedSetups = setupOptions.value.map((option) => option.value).filter((value) => value !== 'All')
-    const allowedEmotions = emotionOptions.value.map((option) => option.value).filter((value) => value !== 'All')
-    const validated = validateTradeSubmission(draft, screenshots, allowedSymbols, allowedSetups, allowedEmotions)
+    const validated = validateTradeSubmission(draft, screenshots, allowedSymbols, allowedSetups)
     const netPnl = normalizeTradePnl(validated.result, validated.netPnl)
     const commission = validated.commission
     const result = validated.result || (netPnl > 0 ? 'Win' : netPnl < 0 ? 'Loss' : 'BE')
@@ -1624,14 +1667,14 @@ export function useLedger() {
       trade_time: validated.time,
       direction: draft.direction,
       setup: validated.setup,
-      session: validated.session,
-      emotion: validated.emotion,
+      session: resolveTradeSession(validated.time),
+      emotion: TRADE_EMOTION_PLACEHOLDER,
       result,
       net_pnl: netPnl,
       gross_pnl: Number(netPnl + commission),
       commission,
       rr: validated.rr,
-      hold_minutes: validated.holdMinutes,
+      hold_minutes: holdMinutes,
       entry: validated.entry,
       exit: validated.exit,
       stop_loss: validated.stopLoss,
@@ -1678,7 +1721,7 @@ export function useLedger() {
       }
     }
 
-    newTradeDraft.value = createDraft(validated.date)
+    newTradeDraft.value = createDraft()
     editingTradeId.value = null
     selectedTradeId.value = savedTradeId ?? selectedTradeId.value
     selectedDay.value = validated.date
@@ -1708,27 +1751,27 @@ export function useLedger() {
     const supabase = useSupabase()
     const allowedSymbols = symbolOptions.value.map((option) => option.value).filter((value) => value !== 'All')
     const allowedSetups = setupOptions.value.map((option) => option.value).filter((value) => value !== 'All')
-    const allowedEmotions = emotionOptions.value.map((option) => option.value).filter((value) => value !== 'All')
-    const validated = validateTradeSubmission(draft, screenshots, allowedSymbols, allowedSetups, allowedEmotions)
+    const validated = validateTradeSubmission(draft, screenshots, allowedSymbols, allowedSetups)
     const netPnl = normalizeTradePnl(validated.result, validated.netPnl)
     const commission = validated.commission
     const result = validated.result || (netPnl > 0 ? 'Win' : netPnl < 0 ? 'Loss' : 'BE')
+    const holdMinutes = calculateDurationMinutes(validated.date, validated.time, validated.closeDate, validated.closeTime)
 
     const payload = {
       user_id: currentUser.id,
       symbol: validated.symbol,
-      trade_date: validated.date,
-      trade_time: validated.time,
+      trade_date: openTrade.date,
+      trade_time: openTrade.time,
       direction: draft.direction,
       setup: validated.setup,
-      session: validated.session,
-      emotion: validated.emotion,
+      session: resolveTradeSession(openTrade.time),
+      emotion: TRADE_EMOTION_PLACEHOLDER,
       result,
       net_pnl: netPnl,
       gross_pnl: Number(netPnl + commission),
       commission,
       rr: validated.rr,
-      hold_minutes: validated.holdMinutes,
+      hold_minutes: holdMinutes,
       entry: validated.entry,
       exit: validated.exit,
       stop_loss: validated.stopLoss,
@@ -1781,23 +1824,23 @@ export function useLedger() {
       throw deleteError
     }
 
-    closeTradeDraft.value = createDraft(validated.date)
+    closeTradeDraft.value = createDraft()
     closingOpenTradeId.value = null
     selectedOpenTradeId.value = ''
     selectedTradeId.value = tradeId
-    selectedDay.value = validated.date
-    selectedMonth.value = toMonthKey(validated.date) as CalendarMonth
+    selectedDay.value = openTrade.date
+    selectedMonth.value = toMonthKey(openTrade.date) as CalendarMonth
     isOpenTradeDialogOpen.value = false
     await refreshLedgerAndProfile()
   }
 
-  function openTradeDialog(date = selectedDay.value) {
+  function openTradeDialog(date = todayKey()) {
     editingTradeId.value = null
     newTradeDraft.value = createDraft(date)
     isTradeDialogOpen.value = true
   }
 
-  function openStartTradeDialog(date = selectedDay.value) {
+  function openStartTradeDialog(date = todayKey()) {
     openTradeDialogMode.value = 'start'
     editingOpenTradeId.value = null
     closingOpenTradeId.value = null
@@ -2017,7 +2060,6 @@ export function useLedger() {
       const matchesSymbol = selectedSymbol.value === 'All' || trade.symbol === selectedSymbol.value
       const matchesSetup = selectedSetup.value === 'All' || trade.setup === selectedSetup.value
       const matchesSession = selectedSession.value === 'All' || trade.session === selectedSession.value
-      const matchesEmotion = selectedEmotion.value === 'All' || trade.emotion === selectedEmotion.value
       const matchesTimeframe =
         timeframe.value === 'All'
           ? true
@@ -2030,7 +2072,7 @@ export function useLedger() {
                 })()
               : trade.date.slice(0, 7) === anchorDate.slice(0, 7)
 
-      return matchesSearch && matchesSymbol && matchesSetup && matchesSession && matchesEmotion && matchesTimeframe
+      return matchesSearch && matchesSymbol && matchesSetup && matchesSession && matchesTimeframe
     })
   })
 
@@ -2049,7 +2091,6 @@ export function useLedger() {
       const matchesSymbol = selectedSymbol.value === 'All' || trade.symbol === selectedSymbol.value
       const matchesSetup = selectedSetup.value === 'All' || trade.setup === selectedSetup.value
       const matchesSession = selectedSession.value === 'All' || trade.session === selectedSession.value
-      const matchesEmotion = selectedEmotion.value === 'All' || trade.emotion === selectedEmotion.value
       const matchesTimeframe =
         timeframe.value === 'All'
           ? true
@@ -2062,7 +2103,7 @@ export function useLedger() {
                 })()
               : trade.date.slice(0, 7) === anchorDate.slice(0, 7)
 
-      return matchesSearch && matchesSymbol && matchesSetup && matchesSession && matchesEmotion && matchesTimeframe
+      return matchesSearch && matchesSymbol && matchesSetup && matchesSession && matchesTimeframe
     })
   })
 
@@ -2094,22 +2135,6 @@ export function useLedger() {
         .map((setup) => ({
           label: setup.name,
           value: setup.name,
-        })),
-    ]
-  })
-
-  const emotionOptions = computed(() => {
-    if (!emotionRows.value.length) {
-      return fallbackEmotionOptions
-    }
-
-    return [
-      { label: 'All Emotions', value: 'All' },
-      ...emotionRows.value
-        .filter((emotion) => emotion.is_active)
-        .map((emotion) => ({
-          label: emotion.name,
-          value: emotion.name,
         })),
     ]
   })
@@ -2178,7 +2203,6 @@ export function useLedger() {
   const calendarDays = computed(() => buildCalendar(filteredTrades.value, selectedMonth.value))
   const setups = computed(() => buildGroupStats(filteredTrades.value, 'setup'))
   const sessions = computed(() => buildGroupStats(filteredTrades.value, 'session'))
-  const emotions = computed(() => buildGroupStats(filteredTrades.value, 'emotion'))
   const symbols = computed(() => buildGroupStats(filteredTrades.value, 'symbol'))
 
   const equitySeries = computed(() => {
@@ -2298,7 +2322,7 @@ export function useLedger() {
     {
       label: 'Avg R:R',
       value: `1 : ${formatTruncatedDecimal(stats.value.avgRR)}`,
-      note: `Hold ${stats.value.avgHoldMinutes}m`,
+      note: `Avg ${formatDurationMinutes(stats.value.avgHoldMinutes)}`,
       icon: 'mdi-trending-up',
       tone: 'neutral',
     },
@@ -2343,12 +2367,10 @@ export function useLedger() {
     openTrades: openTradeItems,
     setupOptions,
     sessionOptions,
-    emotionOptions,
     symbolOptions,
     selectedSymbol,
     selectedSetup,
     selectedSession,
-    selectedEmotion,
     selectedTradeId,
     selectedOpenTradeId,
     editingTradeId,
@@ -2378,7 +2400,6 @@ export function useLedger() {
     calendarDays,
     setups,
     sessions,
-    emotions,
     symbols,
     dashboardKpis,
     equitySeries,
@@ -2416,6 +2437,8 @@ export function useLedger() {
     formatSignedMoney: formatSign,
     formatNumber: (value: number) => decimal.format(value),
     formatRatio: (value: number | string | null | undefined) => formatTruncatedDecimal(value),
+    formatDuration: (value: number | string | null | undefined) => formatDurationMinutes(value),
+    getSessionFromTime: (time: string) => resolveTradeSession(time),
     formatPrice: (value: number) => preciseDecimal.format(value),
     getMonthLabel,
   }

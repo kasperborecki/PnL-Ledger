@@ -2005,6 +2005,35 @@ a {
   gap: 10px;
 }
 
+.forum-profile-recent-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.forum-profile-recent-meta,
+.forum-profile-recent-page {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.forum-profile-recent-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.forum-profile-recent-box {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
 .forum-profile-trade {
   appearance: none;
   display: grid;
@@ -3091,6 +3120,11 @@ a {
     grid-template-columns: 1fr;
   }
 
+  .forum-profile-recent-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .analytics-kpi-grid {
     grid-template-columns: repeat(2, minmax(180px, 1fr));
   }
@@ -3161,6 +3195,11 @@ a {
 
   .forum-profile-trade span:nth-child(2) {
     text-align: left;
+  }
+
+  .forum-profile-recent-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 }
 

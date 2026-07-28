@@ -7,7 +7,6 @@ const subtitle = computed(() => String(route.meta.subtitle ?? 'Trading Journal &
 const symbolOptions = computed(() => ledger.symbolOptions.value)
 const setupOptions = computed(() => ledger.setupOptions.value)
 const sessionOptions = computed(() => ledger.sessionOptions)
-const emotionOptions = computed(() => ledger.emotionOptions.value)
 const timeframe = computed({
   get: () => ledger.timeframe.value,
   set: (value) => {
@@ -30,12 +29,6 @@ const selectedSession = computed({
   get: () => ledger.selectedSession.value,
   set: (value) => {
     ledger.selectedSession.value = value
-  },
-})
-const selectedEmotion = computed({
-  get: () => ledger.selectedEmotion.value,
-  set: (value) => {
-    ledger.selectedEmotion.value = value
   },
 })
 
@@ -98,16 +91,6 @@ function setTimeframe(value: string) {
         option-value="value"
         class="input-dark"
         placeholder="Session"
-        style="min-width: 170px"
-      />
-
-      <PDropdown
-        v-model="selectedEmotion"
-        :options="emotionOptions"
-        option-label="label"
-        option-value="value"
-        class="input-dark"
-        placeholder="Emotion"
         style="min-width: 170px"
       />
     </div>

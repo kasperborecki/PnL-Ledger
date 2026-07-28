@@ -67,8 +67,8 @@ const safeDays = computed(() => props.days ?? [])
               <div class="text">{{ trade.whatToImprove }}</div>
             </div>
             <div class="journal-box">
-              <div class="label">Emotion</div>
-              <div class="text">{{ trade.emotion }}</div>
+              <div class="label">Session</div>
+              <div class="text">{{ trade.session }}</div>
             </div>
           </div>
 

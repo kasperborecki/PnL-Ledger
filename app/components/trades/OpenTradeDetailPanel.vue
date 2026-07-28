@@ -142,10 +142,6 @@ function openImagePreview(url: string | null, title: string) {
             <div class="detail-label">Risk</div>
             <div class="detail-value">{{ ledger.formatNumber(props.trade.riskPercent) }}%</div>
           </div>
-          <div class="detail-item">
-            <div class="detail-label">Emotion</div>
-            <div class="detail-value">{{ props.trade.emotion }}</div>
-          </div>
         </div>
 
         <div>

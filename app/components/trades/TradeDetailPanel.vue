@@ -159,12 +159,8 @@ function openImagePreview(url: string | null, title: string) {
             </div>
             </div>
             <div class="detail-item">
-              <div class="detail-label">Hold</div>
-            <div class="detail-value">{{ props.trade.holdMinutes }}m</div>
-            </div>
-            <div class="detail-item">
-              <div class="detail-label">Emotion</div>
-            <div class="detail-value">{{ props.trade.emotion }}</div>
+              <div class="detail-label">Duration</div>
+            <div class="detail-value">{{ ledger.formatDuration(props.trade.holdMinutes) }}</div>
             </div>
           </div>
 

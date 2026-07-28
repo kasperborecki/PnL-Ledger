@@ -6,7 +6,7 @@ import StatCard from '~/components/ui/StatCard.vue'
 
 const ledger = useLedger()
 const playbookItems = computed(() => ledger.playbookCards.value ?? [])
-const emotionItems = computed(() => ledger.emotions.value ?? [])
+const symbolItems = computed(() => ledger.symbols.value.slice(0, 6) ?? [])
 
 const analyticsKpis = computed(() => [
   {
@@ -24,8 +24,8 @@ const analyticsKpis = computed(() => [
     tone: 'neutral' as const,
   },
   {
-    label: 'Avg Hold',
-    value: `${ledger.stats.value.avgHoldMinutes}m`,
+    label: 'Avg Duration',
+    value: ledger.formatDuration(ledger.stats.value.avgHoldMinutes),
     note: 'Execution speed',
     icon: 'mdi-clock-outline',
     tone: 'neutral' as const,
@@ -168,12 +168,12 @@ const sessionOptions = computed(() => ({
       />
     </div>
 
-    <SectionCard class="analytics-section" title="Psychology Impact" subtitle="How your emotions affect the P&L.">
+    <SectionCard class="analytics-section" title="Top Symbols" subtitle="Which instruments contribute the most.">
       <div class="two-up">
-        <div v-for="item in emotionItems" :key="item.name" class="detail-item">
+        <div v-for="item in symbolItems" :key="item.name" class="detail-item">
           <div class="detail-label">{{ item.name }}</div>
           <div class="detail-value d-flex align-center justify-space-between">
-            <span>{{ item.trades }} trades</span>
+            <span>{{ item.trades }} trades / {{ ledger.formatNumber(item.winRate) }}% WR</span>
             <span :class="item.pnl >= 0 ? 'positive' : 'negative'">
               {{ ledger.formatSignedMoney(item.pnl) }}
             </span>
