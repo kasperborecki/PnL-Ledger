@@ -1659,6 +1659,7 @@ export function useLedger() {
     const netPnl = normalizeTradePnl(validated.result, validated.netPnl)
     const commission = validated.commission
     const result = validated.result || (netPnl > 0 ? 'Win' : netPnl < 0 ? 'Loss' : 'BE')
+    const holdMinutes = calculateDurationMinutes(validated.date, validated.time, validated.closeDate, validated.closeTime)
 
     const payload = {
       user_id: currentUser.id,

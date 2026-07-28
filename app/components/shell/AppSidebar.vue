@@ -12,7 +12,7 @@ const accountBalanceStyle = computed(() => {
   const length = accountBalance.value.replace(/\s+/g, '').length
 
   const fontSize =
-    length <= 9 ? 0.86 : length <= 12 ? 0.78 : length <= 15 ? 0.7 : length <= 18 ? 0.63 : 0.58
+    length <= 9 ? 0.8 : length <= 12 ? 0.73 : length <= 15 ? 0.66 : length <= 18 ? 0.6 : 0.55
 
   return {
     fontSize: `${fontSize}rem`,

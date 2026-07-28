@@ -100,7 +100,7 @@ const previewImageUrl = ref<string | null>(null)
 const previewImageTitle = ref('')
 const forumPageSize = 10
 const traderRecentPage = ref(1)
-const traderRecentPageSize = 5
+const traderRecentPageSize = 4
 
 function toNumber(value: number | string | null | undefined) {
   return Number(value ?? 0) || 0
