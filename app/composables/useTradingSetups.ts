@@ -15,6 +15,7 @@ export type CriterionType =
   | 'required_gate'
 
 export type SetupEvaluationType = 'pre_trade' | 'post_trade_review'
+export type TradePlanStatus = 'watching' | 'ready' | 'triggered' | 'invalidated' | 'archived'
 
 export type CriterionConfig = {
   yesPoints?: number
@@ -119,6 +120,29 @@ export type SetupSummary = {
   winRate: number | null
 }
 
+export type TradePlanRecord = {
+  id: string
+  user_id: string
+  setup_id: string | null
+  setup_evaluation_id: string | null
+  symbol: string
+  direction: 'Long' | 'Short'
+  status: TradePlanStatus
+  timeframe: string
+  session: 'Asia' | 'London' | 'New York' | null
+  planned_entry: number | string
+  planned_stop_loss: number | string
+  planned_take_profit: number | string
+  size: number | string
+  risk_percent: number | string
+  thesis: string
+  trigger_notes: string
+  invalidation_notes: string
+  chart_notes: string
+  created_at: string
+  updated_at: string
+}
+
 type SetupRecord = {
   id: string
   user_id: string
@@ -197,6 +221,7 @@ export type EvaluationRecord = {
   user_id: string
   trade_id: string | null
   open_trade_id: string | null
+  trade_plan_id: string | null
   setup_id: string
   setup_version_id: string
   evaluation_type: SetupEvaluationType
@@ -219,14 +244,48 @@ export type EvaluationAnswer = {
   comment?: string
 }
 
+export type EvaluationAnswerRecord = {
+  id: string
+  evaluation_id: string
+  criterion_id: string
+  boolean_value: boolean | null
+  numeric_value: number | string | null
+  text_value: string | null
+  selected_option_id: string | null
+  selected_options: string[] | null
+  awarded_points: number | string
+  comment: string
+}
+
 export type EvaluationDraft = {
   setupId: string
   setupVersionId: string
   tradeId: string
   openTradeId: string
+  tradePlanId: string
   evaluationType: SetupEvaluationType
   notes: string
   answers: Record<string, EvaluationAnswer>
+}
+
+export type TradePlanDraft = {
+  id?: string
+  setupId: string
+  setupEvaluationId?: string | null
+  symbol: string
+  direction: 'Long' | 'Short'
+  status: TradePlanStatus
+  timeframe: string
+  session: '' | 'Asia' | 'London' | 'New York'
+  plannedEntry: number
+  plannedStopLoss: number
+  plannedTakeProfit: number
+  size: number
+  riskPercent: number
+  thesis: string
+  triggerNotes: string
+  invalidationNotes: string
+  chartNotes: string
 }
 
 const criterionTypeOptions = [
@@ -350,6 +409,48 @@ function blankDraft(): SetupBuilderDraft {
     isActive: true,
     sections: [createSection('Context', 0)],
     thresholds: defaultThresholds(),
+  }
+}
+
+function blankTradePlanDraft(setupId = ''): TradePlanDraft {
+  return {
+    setupId,
+    symbol: 'EURUSD',
+    direction: 'Long',
+    status: 'watching',
+    timeframe: '',
+    session: '',
+    plannedEntry: 0,
+    plannedStopLoss: 0,
+    plannedTakeProfit: 0,
+    size: 0,
+    riskPercent: 1,
+    thesis: '',
+    triggerNotes: '',
+    invalidationNotes: '',
+    chartNotes: '',
+  }
+}
+
+function tradePlanDraftFromRecord(plan: TradePlanRecord): TradePlanDraft {
+  return {
+    id: plan.id,
+    setupId: plan.setup_id ?? '',
+    setupEvaluationId: plan.setup_evaluation_id,
+    symbol: plan.symbol,
+    direction: plan.direction,
+    status: plan.status,
+    timeframe: plan.timeframe,
+    session: plan.session ?? '',
+    plannedEntry: toNumber(plan.planned_entry),
+    plannedStopLoss: toNumber(plan.planned_stop_loss),
+    plannedTakeProfit: toNumber(plan.planned_take_profit),
+    size: toNumber(plan.size),
+    riskPercent: toNumber(plan.risk_percent),
+    thesis: plan.thesis,
+    triggerNotes: plan.trigger_notes,
+    invalidationNotes: plan.invalidation_notes,
+    chartNotes: plan.chart_notes,
   }
 }
 
@@ -580,6 +681,8 @@ export function useTradingSetups() {
   const setupSummaries = useState<SetupSummary[]>('pnl-ledger-trading-setup-summaries', () => [])
   const detailById = useState<Record<string, SetupVersionDetail>>('pnl-ledger-trading-setup-details', () => ({}))
   const evaluations = useState<EvaluationRecord[]>('pnl-ledger-trading-setup-evaluations', () => [])
+  const evaluationAnswersById = useState<Record<string, EvaluationAnswerRecord[]>>('pnl-ledger-trading-setup-evaluation-answers', () => ({}))
+  const tradePlans = useState<TradePlanRecord[]>('pnl-ledger-trade-plans', () => [])
   const selectedSetupId = useState<string>('pnl-ledger-selected-trading-setup', () => '')
   const builderDraft = useState<SetupBuilderDraft>('pnl-ledger-setup-builder-draft', () => blankDraft())
   const evaluationDraft = useState<EvaluationDraft>('pnl-ledger-setup-evaluation-draft', () => ({
@@ -587,10 +690,12 @@ export function useTradingSetups() {
     setupVersionId: '',
     tradeId: '',
     openTradeId: '',
+    tradePlanId: '',
     evaluationType: 'pre_trade',
     notes: '',
     answers: {},
   }))
+  const tradePlanDraft = useState<TradePlanDraft>('pnl-ledger-trade-plan-draft', () => blankTradePlanDraft())
   const isLoading = useState<boolean>('pnl-ledger-trading-setups-loading', () => false)
   const isSaving = useState<boolean>('pnl-ledger-trading-setups-saving', () => false)
   const loadError = useState<string | null>('pnl-ledger-trading-setups-error', () => null)
@@ -614,6 +719,8 @@ export function useTradingSetups() {
     setupSummaries.value = []
     detailById.value = {}
     evaluations.value = []
+    evaluationAnswersById.value = {}
+    tradePlans.value = []
     selectedSetupId.value = ''
     hasLoaded.value = false
   }
@@ -646,7 +753,7 @@ export function useTradingSetups() {
       const versionIds = setups.map((setup) => setup.current_version_id).filter((id): id is string => Boolean(id))
       const setupIds = setups.map((setup) => setup.id)
 
-      const [versionsResult, sectionsResult, evaluationsResult] = await Promise.all([
+      const [versionsResult, sectionsResult, evaluationsResult, plansResult] = await Promise.all([
         versionIds.length
           ? supabase.from('trading_setup_versions').select('*').in('id', versionIds)
           : Promise.resolve({ data: [], error: null }),
@@ -656,11 +763,13 @@ export function useTradingSetups() {
         setupIds.length
           ? supabase.from('trade_setup_evaluations').select('*').eq('user_id', currentUser.id).in('setup_id', setupIds)
           : Promise.resolve({ data: [], error: null }),
+        supabase.from('trade_plans').select('*').eq('user_id', currentUser.id).order('updated_at', { ascending: false }),
       ])
 
       if (versionsResult.error) throw versionsResult.error
       if (sectionsResult.error) throw sectionsResult.error
       if (evaluationsResult.error) throw evaluationsResult.error
+      if (plansResult.error) throw plansResult.error
 
       const versions = (versionsResult.data ?? []) as SetupVersionRecord[]
       const sections = (sectionsResult.data ?? []) as SectionRecord[]
@@ -689,6 +798,21 @@ export function useTradingSetups() {
       const options = (optionsResult.data ?? []) as OptionRecord[]
       const thresholds = (thresholdsResult.data ?? []) as ThresholdRecord[]
       evaluations.value = (evaluationsResult.data ?? []) as EvaluationRecord[]
+      tradePlans.value = (plansResult.data ?? []) as TradePlanRecord[]
+      const evaluationIds = evaluations.value.map((evaluation) => evaluation.id)
+      const answersResult = evaluationIds.length
+        ? await supabase.from('trade_setup_evaluation_answers').select('*').in('evaluation_id', evaluationIds)
+        : { data: [], error: null }
+
+      if (answersResult.error) throw answersResult.error
+
+      const answersByEvaluation: Record<string, EvaluationAnswerRecord[]> = {}
+      for (const answer of (answersResult.data ?? []) as EvaluationAnswerRecord[]) {
+        const list = answersByEvaluation[answer.evaluation_id] ?? []
+        list.push(answer)
+        answersByEvaluation[answer.evaluation_id] = list
+      }
+      evaluationAnswersById.value = answersByEvaluation
 
       const details: Record<string, SetupVersionDetail> = {}
       const versionsById = new Map(versions.map((version) => [version.id, version]))
@@ -1055,10 +1179,12 @@ export function useTradingSetups() {
       setupVersionId: detail.version.id,
       tradeId: '',
       openTradeId: '',
+      tradePlanId: '',
       evaluationType: 'pre_trade',
       notes: '',
       answers: {},
     }
+    tradePlanDraft.value = blankTradePlanDraft(setupId)
   }
 
   function calculateEvaluation(detail: SetupVersionDetail | null, answers: Record<string, EvaluationAnswer>) {
@@ -1111,12 +1237,16 @@ export function useTradingSetups() {
     }
 
     const supabase = useSupabase()
+    const linkedTradePlanId = !linkedTradeId && !linkedOpenTradeId && evaluationType === 'pre_trade'
+      ? await saveTradePlanDraft()
+      : evaluationDraft.value.tradePlanId || null
     const { data: evaluationData, error: evaluationError } = await supabase
       .from('trade_setup_evaluations')
       .insert({
         user_id: currentUser.id,
         trade_id: evaluationDraft.value.tradeId || null,
         open_trade_id: evaluationDraft.value.openTradeId || null,
+        trade_plan_id: linkedTradePlanId,
         setup_id: detail.setup.id,
         setup_version_id: detail.version.id,
         evaluation_type: evaluationType,
@@ -1157,11 +1287,92 @@ export function useTradingSetups() {
       if (answersError) throw answersError
     }
 
+    if (linkedTradePlanId) {
+      const { error: planEvaluationError } = await supabase
+        .from('trade_plans')
+        .update({ setup_evaluation_id: evaluation.id })
+        .eq('id', linkedTradePlanId)
+        .eq('user_id', currentUser.id)
+
+      if (planEvaluationError) throw planEvaluationError
+    }
+
     await refreshSetups()
     startEvaluation(detail.setup.id)
     evaluationDraft.value.tradeId = linkedTradeId
     evaluationDraft.value.openTradeId = linkedOpenTradeId
     evaluationDraft.value.evaluationType = evaluationType
+  }
+
+  async function saveTradePlanDraft() {
+    await auth.ensureAuthReady()
+    const currentUser = auth.user.value
+    const detail = activeDetail.value
+    if (!currentUser) throw new Error('You need to be logged in to save trade plans.')
+    if (!detail && !tradePlanDraft.value.setupId) throw new Error('Select a setup before saving a trade plan.')
+    if (!tradePlanDraft.value.symbol.trim()) throw new Error('Symbol is required for trade plans.')
+
+    const setupId = tradePlanDraft.value.setupId || detail?.setup.id || null
+    const payload = {
+      user_id: currentUser.id,
+      setup_id: setupId,
+      setup_evaluation_id: tradePlanDraft.value.setupEvaluationId ?? null,
+      symbol: tradePlanDraft.value.symbol.trim().toUpperCase(),
+      direction: tradePlanDraft.value.direction,
+      status: tradePlanDraft.value.status,
+      timeframe: tradePlanDraft.value.timeframe.trim(),
+      session: tradePlanDraft.value.session || null,
+      planned_entry: toNumber(tradePlanDraft.value.plannedEntry),
+      planned_stop_loss: toNumber(tradePlanDraft.value.plannedStopLoss),
+      planned_take_profit: toNumber(tradePlanDraft.value.plannedTakeProfit),
+      size: toNumber(tradePlanDraft.value.size),
+      risk_percent: toNumber(tradePlanDraft.value.riskPercent),
+      thesis: tradePlanDraft.value.thesis.trim(),
+      trigger_notes: tradePlanDraft.value.triggerNotes.trim(),
+      invalidation_notes: tradePlanDraft.value.invalidationNotes.trim(),
+      chart_notes: tradePlanDraft.value.chartNotes.trim(),
+    }
+
+    if (tradePlanDraft.value.id) {
+      const { data, error } = await useSupabase()
+        .from('trade_plans')
+        .update(payload)
+        .eq('id', tradePlanDraft.value.id)
+        .eq('user_id', currentUser.id)
+        .select('*')
+        .single()
+
+      if (error) throw error
+      tradePlanDraft.value = tradePlanDraftFromRecord(data as TradePlanRecord)
+      await refreshSetups()
+      return tradePlanDraft.value.id
+    }
+
+    const { data, error } = await useSupabase()
+      .from('trade_plans')
+      .insert(payload)
+      .select('*')
+      .single()
+
+    if (error) throw error
+    tradePlanDraft.value = tradePlanDraftFromRecord(data as TradePlanRecord)
+    await refreshSetups()
+    return tradePlanDraft.value.id
+  }
+
+  function newTradePlanDraft(setupId = selectedSetupId.value) {
+    tradePlanDraft.value = blankTradePlanDraft(setupId)
+    evaluationDraft.value.tradePlanId = ''
+  }
+
+  function editTradePlanDraft(planId: string) {
+    const plan = tradePlans.value.find((item) => item.id === planId)
+    if (!plan) return
+    tradePlanDraft.value = tradePlanDraftFromRecord(plan)
+    if (plan.setup_id) {
+      selectedSetupId.value = plan.setup_id
+    }
+    evaluationDraft.value.tradePlanId = plan.id
   }
 
   async function linkEvaluationToTrade(evaluationId: string, link: { tradeId?: string; openTradeId?: string }) {
@@ -1181,6 +1392,14 @@ export function useTradingSetups() {
       .eq('user_id', currentUser.id)
 
     if (error) throw error
+    const evaluation = evaluations.value.find((item) => item.id === evaluationId)
+    if (evaluation?.trade_plan_id) {
+      await useSupabase()
+        .from('trade_plans')
+        .update({ status: 'triggered' })
+        .eq('id', evaluation.trade_plan_id)
+        .eq('user_id', currentUser.id)
+    }
     await refreshSetups()
   }
 
@@ -1196,6 +1415,8 @@ export function useTradingSetups() {
     setupSummaries,
     detailById,
     evaluations,
+    evaluationAnswersById,
+    tradePlans,
     selectedSetupId,
     activeDetail,
     builderDraft,
@@ -1204,6 +1425,7 @@ export function useTradingSetups() {
     builderMaxScore,
     builderCriteriaCount,
     evaluationDraft,
+    tradePlanDraft,
     evaluationResult,
     isLoading,
     isSaving,
@@ -1231,6 +1453,9 @@ export function useTradingSetups() {
     startEvaluation,
     calculateEvaluation,
     saveEvaluation,
+    saveTradePlanDraft,
+    newTradePlanDraft,
+    editTradePlanDraft,
     linkEvaluationToTrade,
     calculateMaxScore,
   }

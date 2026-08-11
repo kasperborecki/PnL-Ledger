@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import SectionCard from '~/components/ui/SectionCard.vue'
-import type { BuilderCriterion, BuilderSection, EvaluationAnswer, EvaluationRecord, SetupSummary } from '~/composables/useTradingSetups'
+import type { BuilderCriterion, BuilderSection, EvaluationAnswer, EvaluationAnswerRecord, EvaluationRecord, SetupSummary, TradePlanRecord } from '~/composables/useTradingSetups'
 
 const setupEngine = useTradingSetups()
 const ledger = useLedger()
@@ -15,6 +15,8 @@ const draggedCriterionSectionUid = ref('')
 const tradeLinkType = ref<'none' | 'active' | 'closed'>('none')
 const planLinkDrafts = ref<Record<string, { type: 'active' | 'closed'; id: string }>>({})
 const evaluationActionError = ref('')
+const isEvaluationPreviewOpen = ref(false)
+const previewEvaluationId = ref('')
 
 const visibleSetups = computed(() => setupEngine.setupSummaries.value.filter((setup) => !setup.isArchived))
 const archivedSetups = computed(() => setupEngine.setupSummaries.value.filter((setup) => setup.isArchived))
@@ -35,9 +37,15 @@ const unlinkedPreTradeEvaluations = computed(() =>
     )
     .sort((left, right) => String(right.graded_at).localeCompare(String(left.graded_at))),
 )
+const activeTradePlans = computed(() =>
+  setupEngine.tradePlans.value
+    .filter((plan) => plan.status !== 'archived')
+    .sort((left, right) => String(right.updated_at).localeCompare(String(left.updated_at))),
+)
 const evaluationResult = computed(() => setupEngine.evaluationResult.value)
 const builderScore = computed(() => setupEngine.builderMaxScore.value)
 const builderCriteriaCount = computed(() => setupEngine.builderCriteriaCount.value)
+const planSymbolOptions = computed(() => ledger.symbolOptions.value.filter((option) => option.value !== 'All'))
 const tradeOptions = computed(() => [
   { label: 'No linked trade', value: '' },
   ...ledger.trades.value.map((trade) => ({
@@ -94,6 +102,15 @@ const linkedTradeId = computed({
 })
 const setupOptions = computed(() => visibleSetups.value.map((setup) => ({ label: setup.name, value: setup.id })))
 const activeSummary = computed(() => setupEngine.setupSummaries.value.find((setup) => setup.id === activeDetail.value?.setup.id) ?? null)
+const previewEvaluation = computed(() =>
+  setupEngine.evaluations.value.find((evaluation) => evaluation.id === previewEvaluationId.value) ?? null,
+)
+const previewEvaluationDetail = computed(() =>
+  previewEvaluation.value ? setupEngine.detailById.value[previewEvaluation.value.setup_id] ?? null : null,
+)
+const previewEvaluationAnswers = computed(() =>
+  previewEvaluationId.value ? setupEngine.evaluationAnswersById.value[previewEvaluationId.value] ?? [] : [],
+)
 const evaluationTypeOptions = [
   { label: 'Pre-trade', value: 'pre_trade' },
   { label: 'Post-trade review', value: 'post_trade_review' },
@@ -106,6 +123,23 @@ const tradeLinkTypeOptions = [
 const planLinkTypeOptions = [
   { label: 'Active', value: 'active' },
   { label: 'Closed', value: 'closed' },
+]
+const planStatusOptions = [
+  { label: 'Watching', value: 'watching' },
+  { label: 'Ready', value: 'ready' },
+  { label: 'Triggered', value: 'triggered' },
+  { label: 'Invalidated', value: 'invalidated' },
+  { label: 'Archived', value: 'archived' },
+]
+const directionOptions = [
+  { label: 'Long', value: 'Long' },
+  { label: 'Short', value: 'Short' },
+]
+const planSessionOptions = [
+  { label: 'Any', value: '' },
+  { label: 'Asia', value: 'Asia' },
+  { label: 'London', value: 'London' },
+  { label: 'New York', value: 'New York' },
 ]
 const yesNoOptions = [
   { label: 'Yes', value: true },
@@ -193,6 +227,10 @@ function setupName(setupId: string) {
   return setupEngine.setupSummaries.value.find((setup) => setup.id === setupId)?.name ?? 'Setup'
 }
 
+function planEvaluation(plan: TradePlanRecord) {
+  return setupEngine.evaluations.value.find((evaluation) => evaluation.id === plan.setup_evaluation_id || evaluation.trade_plan_id === plan.id) ?? null
+}
+
 function planLinkOptions(type: 'active' | 'closed') {
   return type === 'active'
     ? ledger.openTrades.value.map((trade) => ({
@@ -243,6 +281,87 @@ async function saveEvaluation() {
   } catch (caught) {
     evaluationActionError.value = caught instanceof Error ? caught.message : String(caught)
   }
+}
+
+async function saveTradePlan() {
+  evaluationActionError.value = ''
+
+  try {
+    await setupEngine.saveTradePlanDraft()
+  } catch (caught) {
+    evaluationActionError.value = caught instanceof Error ? caught.message : String(caught)
+  }
+}
+
+function editTradePlan(plan: TradePlanRecord) {
+  setupEngine.editTradePlanDraft(plan.id)
+  if (plan.setup_id) {
+    void setupEngine.loadSetupDetail(plan.setup_id)
+  }
+}
+
+function startTradeFromPlan(plan: TradePlanRecord) {
+  const candidateSetup = setupName(plan.setup_id ?? '')
+  const allowedSetups = ledger.setupOptions.value.map((option) => option.value)
+  ledger.openStartTradeDialogFromPlan({
+    symbol: plan.symbol,
+    direction: plan.direction,
+    setup: allowedSetups.includes(candidateSetup) ? candidateSetup : 'Breakout',
+    entry: Number(plan.planned_entry),
+    stopLoss: Number(plan.planned_stop_loss),
+    takeProfit: Number(plan.planned_take_profit),
+    size: Number(plan.size),
+    riskPercent: Number(plan.risk_percent),
+    thesis: plan.thesis,
+    notes: [plan.trigger_notes, plan.invalidation_notes, plan.chart_notes].filter(Boolean).join('\n\n'),
+  })
+}
+
+function openEvaluationPreview(evaluationId: string) {
+  previewEvaluationId.value = evaluationId
+  isEvaluationPreviewOpen.value = true
+}
+
+function answerForCriterion(criterion: BuilderCriterion) {
+  return previewEvaluationAnswers.value.find((answer) => answer.criterion_id === criterion.id) ?? null
+}
+
+function selectedOptionIds(answer: EvaluationAnswerRecord | null) {
+  if (!answer?.selected_options) {
+    return []
+  }
+
+  return Array.isArray(answer.selected_options) ? answer.selected_options : []
+}
+
+function answerValueLabel(criterion: BuilderCriterion, answer: EvaluationAnswerRecord | null) {
+  if (!answer) {
+    return '-'
+  }
+
+  if (answer.boolean_value != null) {
+    return answer.boolean_value ? 'Yes' : 'No'
+  }
+
+  if (answer.selected_option_id) {
+    return criterion.options.find((option) => option.id === answer.selected_option_id)?.label ?? 'Selected option'
+  }
+
+  const multiSelected = selectedOptionIds(answer)
+  if (multiSelected.length) {
+    const labels = multiSelected.map((optionId) => criterion.options.find((option) => option.id === optionId)?.label ?? optionId)
+    return labels.join(', ')
+  }
+
+  if (answer.numeric_value != null) {
+    return String(Number(answer.numeric_value))
+  }
+
+  if (answer.text_value?.trim()) {
+    return answer.text_value
+  }
+
+  return '-'
 }
 
 async function saveBuilder() {
@@ -592,6 +711,7 @@ watch(() => [route.query.trade, route.query.openTrade], applyRouteContext)
                   <span>{{ Number(evaluation.normalized_percentage).toFixed(1) }}% - {{ evaluation.grade_label || 'No grade' }}</span>
                 </div>
                 <PTag :value="evaluation.is_valid ? 'Valid' : 'Invalid'" :severity="evaluation.is_valid ? 'success' : 'danger'" />
+                <PButton type="button" icon="pi pi-eye" class="action-neutral setup-icon-btn" :title="'View evaluation'" @click="openEvaluationPreview(evaluation.id)" />
               </div>
               <div v-if="!activeEvaluations.length" class="setup-empty setup-empty--compact">
                 <strong>No saved evaluations yet</strong>
@@ -919,56 +1039,185 @@ watch(() => [route.query.trade, route.query.openTrade], applyRouteContext)
         </div>
       </SectionCard>
 
+      <SectionCard
+        v-if="activeDetail"
+        title="Trade Plan"
+        subtitle="Editable pre-trade idea used as the base for setup evaluation and later execution."
+      >
+        <template #action>
+          <div class="setup-actions">
+            <PButton type="button" label="New Plan" icon="pi pi-plus" class="action-neutral" @click="setupEngine.newTradePlanDraft(activeDetail.setup.id)" />
+            <PButton type="button" label="Save Plan" icon="pi pi-save" class="action-primary" @click="saveTradePlan" />
+          </div>
+        </template>
+
+        <div class="form-grid form-grid--4">
+          <label class="field">
+            <span>Symbol</span>
+            <PDropdown
+              v-model="setupEngine.tradePlanDraft.value.symbol"
+              :options="planSymbolOptions"
+              option-label="label"
+              option-value="value"
+              class="input-dark"
+              append-to="body"
+            />
+          </label>
+          <label class="field">
+            <span>Direction</span>
+            <PSelectButton
+              v-model="setupEngine.tradePlanDraft.value.direction"
+              :options="directionOptions"
+              option-label="label"
+              option-value="value"
+              class="input-dark"
+            />
+          </label>
+          <label class="field">
+            <span>Status</span>
+            <PDropdown
+              v-model="setupEngine.tradePlanDraft.value.status"
+              :options="planStatusOptions"
+              option-label="label"
+              option-value="value"
+              class="input-dark"
+              append-to="body"
+            />
+          </label>
+          <label class="field">
+            <span>Timeframe</span>
+            <PInputText v-model="setupEngine.tradePlanDraft.value.timeframe" class="input-dark" placeholder="H1 / M15" />
+          </label>
+          <label class="field">
+            <span>Session</span>
+            <PDropdown
+              v-model="setupEngine.tradePlanDraft.value.session"
+              :options="planSessionOptions"
+              option-label="label"
+              option-value="value"
+              class="input-dark"
+              append-to="body"
+            />
+          </label>
+          <label class="field">
+            <span>Entry</span>
+            <input v-model.number="setupEngine.tradePlanDraft.value.plannedEntry" type="number" class="form-input form-input--number">
+          </label>
+          <label class="field">
+            <span>Stop Loss</span>
+            <input v-model.number="setupEngine.tradePlanDraft.value.plannedStopLoss" type="number" class="form-input form-input--number">
+          </label>
+          <label class="field">
+            <span>Take Profit</span>
+            <input v-model.number="setupEngine.tradePlanDraft.value.plannedTakeProfit" type="number" class="form-input form-input--number">
+          </label>
+          <label class="field">
+            <span>Size</span>
+            <input v-model.number="setupEngine.tradePlanDraft.value.size" type="number" class="form-input form-input--number">
+          </label>
+          <label class="field">
+            <span>Risk %</span>
+            <input v-model.number="setupEngine.tradePlanDraft.value.riskPercent" type="number" class="form-input form-input--number">
+          </label>
+          <label class="field field--full">
+            <span>Thesis</span>
+            <PTextarea v-model="setupEngine.tradePlanDraft.value.thesis" auto-resize rows="2" class="input-dark" />
+          </label>
+          <label class="field field--full">
+            <span>Trigger</span>
+            <PTextarea v-model="setupEngine.tradePlanDraft.value.triggerNotes" auto-resize rows="2" class="input-dark" />
+          </label>
+          <label class="field field--full">
+            <span>Invalidation</span>
+            <PTextarea v-model="setupEngine.tradePlanDraft.value.invalidationNotes" auto-resize rows="2" class="input-dark" />
+          </label>
+          <label class="field field--full">
+            <span>Chart Notes</span>
+            <PTextarea v-model="setupEngine.tradePlanDraft.value.chartNotes" auto-resize rows="3" class="input-dark" />
+          </label>
+        </div>
+      </SectionCard>
+
       <div v-if="evaluationActionError" class="sync-banner">
         Evaluation error: {{ evaluationActionError }}
       </div>
 
       <SectionCard
-        v-if="unlinkedPreTradeEvaluations.length"
-        title="Pre-trade Plans"
-        subtitle="Saved setup evaluations that are not linked to any trade yet."
+        v-if="activeTradePlans.length"
+        title="Trade Plans"
+        subtitle="Editable ideas you can revisit, update and turn into trades."
         :padded="false"
       >
         <div class="setup-plan-list">
-          <div v-for="evaluation in unlinkedPreTradeEvaluations" :key="evaluation.id" class="setup-plan-row">
+          <div v-for="plan in activeTradePlans" :key="plan.id" class="setup-plan-row">
             <div class="setup-plan-main">
-              <strong>{{ setupName(evaluation.setup_id) }}</strong>
+              <strong>{{ plan.symbol }} {{ plan.direction }} - {{ setupName(plan.setup_id ?? '') }}</strong>
               <span>
-                {{ formatEvaluationDate(evaluation.graded_at) }} -
-                {{ Number(evaluation.normalized_percentage).toFixed(1) }}% -
-                {{ evaluation.grade_label || 'No grade' }}
+                {{ plan.status.replaceAll('_', ' ') }} -
+                {{ plan.timeframe || 'No timeframe' }} -
+                updated {{ formatEvaluationDate(plan.updated_at) }}
               </span>
-              <small v-if="evaluation.notes">{{ evaluation.notes }}</small>
+              <small v-if="plan.chart_notes || plan.thesis">{{ plan.chart_notes || plan.thesis }}</small>
             </div>
             <div class="setup-plan-score">
-              <strong>{{ Number(evaluation.raw_score).toFixed(1) }} / {{ Number(evaluation.max_score).toFixed(1) }}</strong>
-              <PTag :value="evaluation.is_valid ? 'Valid' : 'Invalid'" :severity="evaluation.is_valid ? 'success' : 'danger'" />
+              <template v-if="planEvaluation(plan)">
+                <strong>{{ Number(planEvaluation(plan)?.raw_score).toFixed(1) }} / {{ Number(planEvaluation(plan)?.max_score).toFixed(1) }}</strong>
+                <span>{{ Number(planEvaluation(plan)?.normalized_percentage).toFixed(1) }}% - {{ planEvaluation(plan)?.grade_label || 'No grade' }}</span>
+              </template>
+              <template v-else>
+                <strong>No evaluation</strong>
+                <span>Save evaluation snapshot</span>
+              </template>
             </div>
             <div class="setup-plan-actions">
+              <PButton
+                type="button"
+                icon="pi pi-eye"
+                class="action-neutral setup-icon-btn"
+                :title="'View evaluation'"
+                :disabled="!planEvaluation(plan)"
+                @click="planEvaluation(plan) && openEvaluationPreview(planEvaluation(plan)!.id)"
+              />
+              <PButton
+                type="button"
+                icon="pi pi-pencil"
+                class="action-neutral setup-icon-btn"
+                :title="'Edit plan'"
+                @click="editTradePlan(plan)"
+              />
+              <PButton
+                type="button"
+                icon="pi pi-play"
+                class="action-primary setup-icon-btn"
+                :title="'Start trade from plan'"
+                @click="startTradeFromPlan(plan)"
+              />
               <PSelectButton
-                v-model="getPlanLinkDraft(evaluation.id).type"
+                v-model="getPlanLinkDraft(planEvaluation(plan)?.id ?? plan.id).type"
                 :options="planLinkTypeOptions"
                 option-label="label"
                 option-value="value"
                 class="input-dark"
-                @change="onPlanLinkTypeChange(evaluation.id)"
+                :disabled="!planEvaluation(plan)"
+                @change="onPlanLinkTypeChange(planEvaluation(plan)?.id ?? plan.id)"
               />
               <PDropdown
-                v-model="getPlanLinkDraft(evaluation.id).id"
-                :options="planLinkOptions(getPlanLinkDraft(evaluation.id).type)"
+                v-model="getPlanLinkDraft(planEvaluation(plan)?.id ?? plan.id).id"
+                :options="planLinkOptions(getPlanLinkDraft(planEvaluation(plan)?.id ?? plan.id).type)"
                 option-label="label"
                 option-value="value"
                 class="input-dark"
                 append-to="body"
                 placeholder="Choose trade"
+                :disabled="!planEvaluation(plan)"
               />
               <PButton
                 type="button"
                 label="Link"
                 icon="pi pi-link"
                 class="action-primary"
-                :disabled="!getPlanLinkDraft(evaluation.id).id"
-                @click="linkPlanEvaluation(evaluation.id)"
+                :disabled="!planEvaluation(plan) || !getPlanLinkDraft(planEvaluation(plan)?.id ?? plan.id).id"
+                @click="planEvaluation(plan) && linkPlanEvaluation(planEvaluation(plan)!.id)"
               />
             </div>
           </div>
@@ -1066,6 +1315,51 @@ watch(() => [route.query.trade, route.query.openTrade], applyRouteContext)
         <span>The grading form is generated from the setup version, criteria and thresholds.</span>
       </div>
     </section>
+
+    <PDialog
+      v-model:visible="isEvaluationPreviewOpen"
+      modal
+      header="Evaluation Preview"
+      class="evaluation-preview-dialog"
+      :style="{ width: 'min(860px, calc(100vw - 28px))' }"
+    >
+      <div v-if="previewEvaluation && previewEvaluationDetail" class="evaluation-preview">
+        <div class="evaluation-preview-head">
+          <div>
+            <strong>{{ setupName(previewEvaluation.setup_id) }}</strong>
+            <span>{{ formatEvaluationDate(previewEvaluation.graded_at) }} - {{ previewEvaluation.evaluation_type.replaceAll('_', ' ') }}</span>
+          </div>
+          <div class="evaluation-preview-score">
+            <strong>{{ Number(previewEvaluation.raw_score).toFixed(1) }} / {{ Number(previewEvaluation.max_score).toFixed(1) }}</strong>
+            <span>{{ Number(previewEvaluation.normalized_percentage).toFixed(1) }}% - {{ previewEvaluation.grade_label || 'No grade' }}</span>
+          </div>
+          <PTag :value="previewEvaluation.is_valid ? 'Valid' : 'Invalid'" :severity="previewEvaluation.is_valid ? 'success' : 'danger'" />
+        </div>
+
+        <div v-if="previewEvaluation.notes" class="evaluation-preview-notes">
+          {{ previewEvaluation.notes }}
+        </div>
+
+        <div class="evaluation-preview-sections">
+          <div v-for="section in previewEvaluationDetail.sections" :key="section.id" class="evaluation-preview-section">
+            <strong>{{ section.name }}</strong>
+            <div v-for="criterion in section.criteria" :key="criterion.id" class="evaluation-preview-answer">
+              <div>
+                <span>{{ criterion.name }}</span>
+                <small>{{ answerValueLabel(criterion, answerForCriterion(criterion)) }}</small>
+                <small v-if="answerForCriterion(criterion)?.comment">{{ answerForCriterion(criterion)?.comment }}</small>
+              </div>
+              <strong>{{ Number(answerForCriterion(criterion)?.awarded_points ?? 0).toFixed(1) }} / {{ criterion.maxPoints }}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-else class="setup-empty setup-empty--compact">
+        <strong>Evaluation details unavailable</strong>
+        <span>The saved score is available, but its setup version could not be loaded.</span>
+      </div>
+    </PDialog>
 
   </div>
 </template>

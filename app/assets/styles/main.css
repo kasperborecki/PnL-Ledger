@@ -3356,7 +3356,7 @@ a {
 
 .setup-plan-actions {
   display: grid;
-  grid-template-columns: minmax(150px, 0.7fr) minmax(160px, 1fr) auto;
+  grid-template-columns: auto auto auto minmax(150px, 0.7fr) minmax(160px, 1fr) auto;
   gap: 10px;
   align-items: center;
 }
@@ -3369,6 +3369,83 @@ a {
   flex: 1 1 0;
   justify-content: center;
   white-space: nowrap;
+}
+
+.setup-plan-score span {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.evaluation-preview-dialog.p-dialog,
+.evaluation-preview-dialog .p-dialog {
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.98), rgba(10, 15, 22, 0.98));
+  color: var(--text);
+}
+
+.evaluation-preview-dialog .p-dialog-header,
+.evaluation-preview-dialog .p-dialog-content {
+  background: transparent;
+  color: var(--text);
+}
+
+.evaluation-preview {
+  display: grid;
+  gap: 14px;
+}
+
+.evaluation-preview-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 14px;
+  align-items: center;
+}
+
+.evaluation-preview-head span,
+.evaluation-preview-answer small,
+.evaluation-preview-score span {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.evaluation-preview-score {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.evaluation-preview-notes,
+.evaluation-preview-section {
+  padding: 14px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.evaluation-preview-sections {
+  display: grid;
+  gap: 12px;
+}
+
+.evaluation-preview-section {
+  display: grid;
+  gap: 10px;
+}
+
+.evaluation-preview-answer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.evaluation-preview-answer span {
+  color: var(--text);
+  font-weight: 750;
 }
 
 .trade-evaluation-title {
@@ -3897,14 +3974,17 @@ a {
   .setup-evaluation-history-row,
   .trade-evaluation-row,
   .setup-plan-row,
-  .setup-plan-actions {
+  .setup-plan-actions,
+  .evaluation-preview-head,
+  .evaluation-preview-answer {
     grid-template-columns: 1fr;
     align-items: start;
   }
 
   .setup-evaluation-history-score,
   .trade-evaluation-score,
-  .setup-plan-score {
+  .setup-plan-score,
+  .evaluation-preview-score {
     text-align: left;
     justify-items: start;
   }

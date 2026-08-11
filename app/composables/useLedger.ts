@@ -1866,6 +1866,37 @@ export function useLedger() {
     isOpenTradeDialogOpen.value = true
   }
 
+  function openStartTradeDialogFromPlan(plan: {
+    symbol: string
+    direction: Trade['direction']
+    setup: string
+    entry: number
+    stopLoss: number
+    takeProfit: number
+    size: number
+    riskPercent: number
+    thesis: string
+    notes: string
+  }) {
+    openTradeDialogMode.value = 'start'
+    editingOpenTradeId.value = null
+    closingOpenTradeId.value = null
+    openTradeDraft.value = {
+      ...createOpenTradeDraft(),
+      symbol: plan.symbol,
+      direction: plan.direction,
+      setup: plan.setup || 'Breakout',
+      entry: plan.entry,
+      stopLoss: plan.stopLoss,
+      takeProfit: plan.takeProfit,
+      size: plan.size,
+      riskPercent: plan.riskPercent,
+      whyEntered: plan.thesis,
+      notes: plan.notes,
+    }
+    isOpenTradeDialogOpen.value = true
+  }
+
   function openOpenTradeEditDialog(openTradeId: string) {
     const trade = openTradeItems.value.find((item) => item.id === openTradeId)
     if (!trade) {
@@ -2431,6 +2462,7 @@ export function useLedger() {
     journalDays,
     openTradeDialog,
     openStartTradeDialog,
+    openStartTradeDialogFromPlan,
     openOpenTradeEditDialog,
     openOpenTradeCloseDialog,
     openTradeEditDialog,
