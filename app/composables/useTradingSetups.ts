@@ -114,6 +114,7 @@ export type SetupSummary = {
   topGradeLabel: string | null
   topGradeMin: number | null
   tradesGraded: number
+  plannedTrades: number
   avgScore: number | null
   winRate: number | null
 }
@@ -191,7 +192,7 @@ type ThresholdRecord = {
   sort_order: number
 }
 
-type EvaluationRecord = {
+export type EvaluationRecord = {
   id: string
   user_id: string
   trade_id: string | null
@@ -205,6 +206,7 @@ type EvaluationRecord = {
   grade_label: string | null
   is_valid: boolean
   invalid_reason: string | null
+  notes: string
   graded_at: string
 }
 
@@ -710,6 +712,12 @@ export function useTradingSetups() {
         const versionSections = version ? rowsToSections(sectionsByVersion.get(version.id) ?? [], criteria, options) : []
         const versionThresholds = version ? rowsToThresholds(thresholdsByVersion.get(version.id) ?? []) : []
         const setupEvaluations = evaluations.value.filter((evaluation) => evaluation.setup_id === setup.id)
+        const plannedTrades = setupEvaluations.filter(
+          (evaluation) =>
+            evaluation.evaluation_type === 'pre_trade'
+            && !evaluation.trade_id
+            && !evaluation.open_trade_id,
+        ).length
         const avgScore = setupEvaluations.length
           ? setupEvaluations.reduce((sum, evaluation) => sum + toNumber(evaluation.normalized_percentage), 0) / setupEvaluations.length
           : null
@@ -741,6 +749,7 @@ export function useTradingSetups() {
           topGradeLabel: topGrade?.label ?? null,
           topGradeMin: topGrade?.minValue ?? null,
           tradesGraded: setupEvaluations.length,
+          plannedTrades,
           avgScore,
           winRate: null,
         }
@@ -1096,6 +1105,11 @@ export function useTradingSetups() {
       evaluationDraft.value.evaluationType === 'post_trade_review'
         ? 'post_trade_review'
         : 'pre_trade'
+
+    if (evaluationType === 'post_trade_review' && !linkedTradeId && !linkedOpenTradeId) {
+      throw new Error('Post-trade reviews must be linked to an active or closed trade.')
+    }
+
     const supabase = useSupabase()
     const { data: evaluationData, error: evaluationError } = await supabase
       .from('trade_setup_evaluations')
@@ -1150,6 +1164,26 @@ export function useTradingSetups() {
     evaluationDraft.value.evaluationType = evaluationType
   }
 
+  async function linkEvaluationToTrade(evaluationId: string, link: { tradeId?: string; openTradeId?: string }) {
+    await auth.ensureAuthReady()
+    const currentUser = auth.user.value
+    if (!currentUser) throw new Error('You need to be logged in to link evaluations.')
+    if (!link.tradeId && !link.openTradeId) throw new Error('Choose an active or closed trade first.')
+    if (link.tradeId && link.openTradeId) throw new Error('Evaluation can only be linked to one trade.')
+
+    const { error } = await useSupabase()
+      .from('trade_setup_evaluations')
+      .update({
+        trade_id: link.tradeId || null,
+        open_trade_id: link.openTradeId || null,
+      })
+      .eq('id', evaluationId)
+      .eq('user_id', currentUser.id)
+
+    if (error) throw error
+    await refreshSetups()
+  }
+
   onMounted(() => {
     if (!hasLoaded.value && !isLoading.value) {
       void refreshSetups()
@@ -1197,6 +1231,7 @@ export function useTradingSetups() {
     startEvaluation,
     calculateEvaluation,
     saveEvaluation,
+    linkEvaluationToTrade,
     calculateMaxScore,
   }
 }

@@ -3306,6 +3306,71 @@ a {
   white-space: nowrap;
 }
 
+.setup-plan-list {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+}
+
+.setup-plan-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(320px, 0.9fr);
+  gap: 14px;
+  align-items: center;
+  min-height: 82px;
+  padding: 14px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.setup-plan-main,
+.setup-plan-score,
+.setup-plan-actions {
+  min-width: 0;
+}
+
+.setup-plan-main {
+  display: grid;
+  gap: 4px;
+}
+
+.setup-plan-main span,
+.setup-plan-main small {
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.setup-plan-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.setup-plan-score {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.setup-plan-actions {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.7fr) minmax(160px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.setup-plan-actions .p-selectbutton {
+  display: flex;
+}
+
+.setup-plan-actions .p-selectbutton .p-button {
+  flex: 1 1 0;
+  justify-content: center;
+  white-space: nowrap;
+}
+
 .trade-evaluation-title {
   color: var(--text);
   font-weight: 850;
@@ -3830,14 +3895,18 @@ a {
   }
 
   .setup-evaluation-history-row,
-  .trade-evaluation-row {
+  .trade-evaluation-row,
+  .setup-plan-row,
+  .setup-plan-actions {
     grid-template-columns: 1fr;
     align-items: start;
   }
 
   .setup-evaluation-history-score,
-  .trade-evaluation-score {
+  .trade-evaluation-score,
+  .setup-plan-score {
     text-align: left;
+    justify-items: start;
   }
 
   .setup-card-actions,

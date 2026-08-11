@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import SectionCard from '~/components/ui/SectionCard.vue'
-import type { BuilderCriterion, BuilderSection, EvaluationAnswer, SetupSummary } from '~/composables/useTradingSetups'
+import type { BuilderCriterion, BuilderSection, EvaluationAnswer, EvaluationRecord, SetupSummary } from '~/composables/useTradingSetups'
 
 const setupEngine = useTradingSetups()
 const ledger = useLedger()
@@ -13,6 +13,8 @@ const draggedSectionUid = ref('')
 const draggedCriterionUid = ref('')
 const draggedCriterionSectionUid = ref('')
 const tradeLinkType = ref<'none' | 'active' | 'closed'>('none')
+const planLinkDrafts = ref<Record<string, { type: 'active' | 'closed'; id: string }>>({})
+const evaluationActionError = ref('')
 
 const visibleSetups = computed(() => setupEngine.setupSummaries.value.filter((setup) => !setup.isArchived))
 const archivedSetups = computed(() => setupEngine.setupSummaries.value.filter((setup) => setup.isArchived))
@@ -23,6 +25,15 @@ const activeEvaluations = computed(() =>
       .filter((evaluation) => evaluation.setup_id === activeDetail.value?.setup.id)
       .sort((left, right) => String(right.graded_at).localeCompare(String(left.graded_at)))
     : [],
+)
+const unlinkedPreTradeEvaluations = computed(() =>
+  setupEngine.evaluations.value
+    .filter((evaluation) =>
+      evaluation.evaluation_type === 'pre_trade'
+      && !evaluation.trade_id
+      && !evaluation.open_trade_id,
+    )
+    .sort((left, right) => String(right.graded_at).localeCompare(String(left.graded_at))),
 )
 const evaluationResult = computed(() => setupEngine.evaluationResult.value)
 const builderScore = computed(() => setupEngine.builderMaxScore.value)
@@ -89,6 +100,10 @@ const evaluationTypeOptions = [
 ]
 const tradeLinkTypeOptions = [
   { label: 'None', value: 'none' },
+  { label: 'Active', value: 'active' },
+  { label: 'Closed', value: 'closed' },
+]
+const planLinkTypeOptions = [
   { label: 'Active', value: 'active' },
   { label: 'Closed', value: 'closed' },
 ]
@@ -171,6 +186,62 @@ function onTradeLinkTypeChange() {
 
   if (tradeLinkType.value !== 'active') {
     setupEngine.evaluationDraft.value.openTradeId = ''
+  }
+}
+
+function setupName(setupId: string) {
+  return setupEngine.setupSummaries.value.find((setup) => setup.id === setupId)?.name ?? 'Setup'
+}
+
+function planLinkOptions(type: 'active' | 'closed') {
+  return type === 'active'
+    ? ledger.openTrades.value.map((trade) => ({
+      label: `${trade.symbol} ${trade.direction} - ${trade.date} ${trade.time}`,
+      value: trade.id,
+    }))
+    : ledger.trades.value.map((trade) => ({
+      label: `${trade.symbol} ${trade.direction} - ${trade.date} ${trade.time}`,
+      value: trade.id,
+    }))
+}
+
+function getPlanLinkDraft(evaluationId: string) {
+  if (!planLinkDrafts.value[evaluationId]) {
+    planLinkDrafts.value[evaluationId] = {
+      type: ledger.openTrades.value.length ? 'active' : 'closed',
+      id: '',
+    }
+  }
+
+  return planLinkDrafts.value[evaluationId]
+}
+
+function onPlanLinkTypeChange(evaluationId: string) {
+  getPlanLinkDraft(evaluationId).id = ''
+}
+
+async function linkPlanEvaluation(evaluationId: string) {
+  const draft = getPlanLinkDraft(evaluationId)
+  evaluationActionError.value = ''
+
+  try {
+    await setupEngine.linkEvaluationToTrade(evaluationId, {
+      openTradeId: draft.type === 'active' ? draft.id : '',
+      tradeId: draft.type === 'closed' ? draft.id : '',
+    })
+    delete planLinkDrafts.value[evaluationId]
+  } catch (caught) {
+    evaluationActionError.value = caught instanceof Error ? caught.message : String(caught)
+  }
+}
+
+async function saveEvaluation() {
+  evaluationActionError.value = ''
+
+  try {
+    await setupEngine.saveEvaluation()
+  } catch (caught) {
+    evaluationActionError.value = caught instanceof Error ? caught.message : String(caught)
   }
 }
 
@@ -264,17 +335,17 @@ function formatPercent(value: number | null) {
   return value == null ? '-' : `${Number(value).toFixed(1)}%`
 }
 
-function tradeLabel(tradeId: string | null, openTradeId?: string | null) {
-  if (openTradeId) {
-    const openTrade = ledger.openTrades.value.find((item) => item.id === openTradeId)
+function tradeLabel(evaluation: EvaluationRecord) {
+  if (evaluation.open_trade_id) {
+    const openTrade = ledger.openTrades.value.find((item) => item.id === evaluation.open_trade_id)
     return openTrade ? `${openTrade.symbol} ${openTrade.direction} - ${openTrade.date}` : 'Active trade'
   }
 
-  if (!tradeId) {
-    return 'No linked trade'
+  if (!evaluation.trade_id) {
+    return evaluation.evaluation_type === 'pre_trade' ? 'Pre-trade plan' : 'No linked trade'
   }
 
-  const trade = ledger.trades.value.find((item) => item.id === tradeId)
+  const trade = ledger.trades.value.find((item) => item.id === evaluation.trade_id)
   return trade ? `${trade.symbol} ${trade.direction} - ${trade.date}` : 'Linked trade'
 }
 
@@ -400,7 +471,7 @@ watch(() => [route.query.trade, route.query.openTrade], applyRouteContext)
 
             <div class="setup-card-line">
               <span>Avg score {{ formatPercent(setup.avgScore) }}</span>
-              <span>Win rate {{ setup.winRate == null ? '-' : `${setup.winRate.toFixed(1)}%` }}</span>
+              <span>{{ setup.plannedTrades }} pre-trade plans</span>
             </div>
 
             <div class="setup-card-actions" @click.stop>
@@ -513,7 +584,7 @@ watch(() => [route.query.trade, route.query.openTrade], applyRouteContext)
             <div class="setup-evaluation-history">
               <div v-for="evaluation in activeEvaluations" :key="evaluation.id" class="setup-evaluation-history-row">
                 <div>
-                  <strong>{{ tradeLabel(evaluation.trade_id, evaluation.open_trade_id) }}</strong>
+                  <strong>{{ tradeLabel(evaluation) }}</strong>
                   <span>{{ formatEvaluationDate(evaluation.graded_at) }} - {{ evaluation.evaluation_type.replaceAll('_', ' ') }}</span>
                 </div>
                 <div class="setup-evaluation-history-score">
@@ -848,6 +919,62 @@ watch(() => [route.query.trade, route.query.openTrade], applyRouteContext)
         </div>
       </SectionCard>
 
+      <div v-if="evaluationActionError" class="sync-banner">
+        Evaluation error: {{ evaluationActionError }}
+      </div>
+
+      <SectionCard
+        v-if="unlinkedPreTradeEvaluations.length"
+        title="Pre-trade Plans"
+        subtitle="Saved setup evaluations that are not linked to any trade yet."
+        :padded="false"
+      >
+        <div class="setup-plan-list">
+          <div v-for="evaluation in unlinkedPreTradeEvaluations" :key="evaluation.id" class="setup-plan-row">
+            <div class="setup-plan-main">
+              <strong>{{ setupName(evaluation.setup_id) }}</strong>
+              <span>
+                {{ formatEvaluationDate(evaluation.graded_at) }} -
+                {{ Number(evaluation.normalized_percentage).toFixed(1) }}% -
+                {{ evaluation.grade_label || 'No grade' }}
+              </span>
+              <small v-if="evaluation.notes">{{ evaluation.notes }}</small>
+            </div>
+            <div class="setup-plan-score">
+              <strong>{{ Number(evaluation.raw_score).toFixed(1) }} / {{ Number(evaluation.max_score).toFixed(1) }}</strong>
+              <PTag :value="evaluation.is_valid ? 'Valid' : 'Invalid'" :severity="evaluation.is_valid ? 'success' : 'danger'" />
+            </div>
+            <div class="setup-plan-actions">
+              <PSelectButton
+                v-model="getPlanLinkDraft(evaluation.id).type"
+                :options="planLinkTypeOptions"
+                option-label="label"
+                option-value="value"
+                class="input-dark"
+                @change="onPlanLinkTypeChange(evaluation.id)"
+              />
+              <PDropdown
+                v-model="getPlanLinkDraft(evaluation.id).id"
+                :options="planLinkOptions(getPlanLinkDraft(evaluation.id).type)"
+                option-label="label"
+                option-value="value"
+                class="input-dark"
+                append-to="body"
+                placeholder="Choose trade"
+              />
+              <PButton
+                type="button"
+                label="Link"
+                icon="pi pi-link"
+                class="action-primary"
+                :disabled="!getPlanLinkDraft(evaluation.id).id"
+                @click="linkPlanEvaluation(evaluation.id)"
+              />
+            </div>
+          </div>
+        </div>
+      </SectionCard>
+
       <div v-if="activeDetail" class="setup-evaluation-grid">
         <div class="setup-evaluation-form">
           <SectionCard
@@ -929,7 +1056,7 @@ watch(() => [route.query.trade, route.query.openTrade], applyRouteContext)
               <span>Notes</span>
               <PTextarea v-model="setupEngine.evaluationDraft.value.notes" auto-resize rows="3" class="input-dark" />
             </label>
-            <PButton type="button" label="Save Evaluation" icon="pi pi-save" class="action-primary" @click="setupEngine.saveEvaluation" />
+            <PButton type="button" label="Save Evaluation" icon="pi pi-save" class="action-primary" @click="saveEvaluation" />
           </div>
         </aside>
       </div>
