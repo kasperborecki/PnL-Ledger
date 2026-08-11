@@ -48,7 +48,7 @@ const allTimeSetupInsights = computed(() => {
         grade: pnl > 250 ? 'A' : pnl > 0 ? 'B' : 'D',
         expectancy: trades.length ? pnl / trades.length : 0,
         expectancyLabel: ledger.formatSignedMoney(trades.length ? pnl / trades.length : 0),
-        avgRRLabel: `1 : ${rr.toFixed(1)}`,
+        avgRRLabel: `1 : ${ledger.formatRatio(rr)}`,
         profitFactor,
       }
 
@@ -96,7 +96,7 @@ const hasPlaybookItems = computed(() => playbookItems.value.length > 0)
           <div class="dashboard-outcome-meta">
             <span>{{ item.trades }} trades</span>
             <span>Win rate {{ ledger.formatNumber(item.winRate) }}%</span>
-            <span>1 : {{ item.avgRR.toFixed(1) }}</span>
+            <span>1 : {{ ledger.formatRatio(item.avgRR) }}</span>
           </div>
         </div>
       </div>

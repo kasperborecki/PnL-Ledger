@@ -96,8 +96,8 @@ const dashboardSignals = computed(() => [
     note: 'Per trade',
   },
   {
-    label: 'Avg Hold',
-    value: `${ledger.stats.value.avgHoldMinutes}m`,
+    label: 'Avg Duration',
+    value: ledger.formatDuration(ledger.stats.value.avgHoldMinutes),
     note: 'Execution pace',
   },
   {
@@ -185,7 +185,7 @@ const topSessions = computed(() => ledger.sessions.value.slice(0, 3))
             <div>
               <div class="dashboard-rank-title">{{ setup.name }}</div>
               <div class="dashboard-rank-meta">
-                {{ setup.trades }} trades / {{ ledger.formatNumber(setup.winRate) }}% WR / 1 : {{ setup.avgRR.toFixed(1) }}
+                {{ setup.trades }} trades / {{ ledger.formatNumber(setup.winRate) }}% WR / 1 : {{ ledger.formatRatio(setup.avgRR) }}
               </div>
             </div>
             <div class="dashboard-rank-value" :class="setup.pnl >= 0 ? 'positive' : 'negative'">

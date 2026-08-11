@@ -116,9 +116,6 @@ function handleSelectOpenTrade(trade: OpenTrade) {
                   Setup
                 </v-chip>
                 <v-chip variant="tonal" color="success">
-                  Emotion
-                </v-chip>
-                <v-chip variant="tonal" color="success">
                   Session
                 </v-chip>
               </div>

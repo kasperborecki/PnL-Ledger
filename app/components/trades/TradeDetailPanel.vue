@@ -14,8 +14,14 @@ const isImagePreviewOpen = ref(false)
 const previewImageUrl = ref<string | null>(null)
 const previewImageTitle = ref('')
 
-function fixed(value: number | undefined, digits = 1) {
-  return Number.isFinite(value) ? Number(value).toFixed(digits) : '-'
+function fixed(value: number | undefined, digits = 2) {
+  if (!Number.isFinite(value)) {
+    return '-'
+  }
+
+  const numeric = Number(value)
+  const factor = 10 ** digits
+  return (Math.trunc(numeric * factor) / factor).toFixed(digits)
 }
 
 const setupEvaluations = computed(() =>
@@ -166,7 +172,7 @@ function openImagePreview(url: string | null, title: string) {
             </div>
             <div class="detail-item">
               <div class="detail-label">R:R</div>
-            <div class="detail-value">1 : {{ fixed(props.trade.rr) }}</div>
+            <div class="detail-value">1 : {{ ledger.formatRatio(props.trade.rr) }}</div>
             </div>
             <div class="detail-item">
               <div class="detail-label">Risk</div>
@@ -191,12 +197,8 @@ function openImagePreview(url: string | null, title: string) {
             </div>
             </div>
             <div class="detail-item">
-              <div class="detail-label">Hold</div>
-            <div class="detail-value">{{ props.trade.holdMinutes }}m</div>
-            </div>
-            <div class="detail-item">
-              <div class="detail-label">Emotion</div>
-            <div class="detail-value">{{ props.trade.emotion }}</div>
+              <div class="detail-label">Duration</div>
+            <div class="detail-value">{{ ledger.formatDuration(props.trade.holdMinutes) }}</div>
             </div>
         </div>
 

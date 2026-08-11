@@ -91,12 +91,8 @@ function handleSelectDay(day: string) {
 
               <div class="journal-grid">
                 <div class="journal-box">
-                  <div class="label">Emotion</div>
-                  <div class="text">{{ trade.emotion }}</div>
-                </div>
-                <div class="journal-box">
-                  <div class="label">Hold</div>
-                  <div class="text">{{ trade.holdMinutes }}m</div>
+                  <div class="label">Duration</div>
+                  <div class="text">{{ ledger.formatDuration(trade.holdMinutes) }}</div>
                 </div>
               </div>
             </div>

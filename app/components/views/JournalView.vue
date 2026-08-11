@@ -22,8 +22,8 @@ const journalKpis = computed(() => [
     tone: 'positive' as const,
   },
   {
-    label: 'Avg Hold',
-    value: `${ledger.stats.value.avgHoldMinutes}m`,
+    label: 'Avg Duration',
+    value: ledger.formatDuration(ledger.stats.value.avgHoldMinutes),
     note: 'How long the edge lasts',
     icon: 'mdi-clock-outline',
     tone: 'neutral' as const,

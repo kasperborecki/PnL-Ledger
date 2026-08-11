@@ -12,8 +12,6 @@ const previewImageTitle = ref('')
 
 const tradeSymbolOptions = computed(() => ledger.symbolOptions.value.filter((option) => option.value !== 'All'))
 const tradeSetupOptions = computed(() => ledger.setupOptions.value.filter((option) => option.value !== 'All'))
-const tradeSessionOptions = computed(() => ledger.sessionOptions.filter((option) => option.value !== 'All'))
-const tradeEmotionOptions = computed(() => ledger.emotionOptions.value.filter((option) => option.value !== 'All'))
 
 const visible = computed({
   get: () => ledger.isTradeDialogOpen.value,
@@ -34,6 +32,18 @@ const dialogNote = computed(() => submitError.value || statusNote.value || foote
 
 const directionOptions = ['Long', 'Short']
 const resultOptions = ['Win', 'Loss', 'BE']
+const autoSessionLabel = computed(() => ledger.getSessionFromTime(draft.value.time))
+const durationLabel = computed(() => {
+  const start = new Date(`${draft.value.date}T${draft.value.time}:00`)
+  const end = new Date(`${draft.value.closeDate}T${draft.value.closeTime}:00`)
+  const durationMinutes = Math.round((end.getTime() - start.getTime()) / 60000)
+
+  if (!Number.isFinite(durationMinutes) || durationMinutes < 0) {
+    return 'Set a valid close date and time'
+  }
+
+  return ledger.formatDuration(durationMinutes)
+})
 
 watch(visible, (isOpen) => {
   if (!isOpen) {
@@ -227,13 +237,23 @@ async function submit() {
           <div class="trade-form-section-title">Trade info</div>
           <div class="form-grid form-grid--2">
             <label class="field">
-              <span>Date</span>
+              <span>Entry date</span>
               <input v-model="draft.date" type="date" class="form-input" />
             </label>
 
             <label class="field">
-              <span>Time</span>
+              <span>Entry time</span>
               <input v-model="draft.time" type="time" class="form-input" />
+            </label>
+
+            <label class="field">
+              <span>Close date</span>
+              <input v-model="draft.closeDate" type="date" class="form-input" />
+            </label>
+
+            <label class="field">
+              <span>Close time</span>
+              <input v-model="draft.closeTime" type="time" class="form-input" />
             </label>
 
             <label class="field">
@@ -262,26 +282,7 @@ async function submit() {
 
             <label class="field">
               <span>Session</span>
-              <PDropdown
-                v-model="draft.session"
-                :options="tradeSessionOptions"
-                option-label="label"
-                option-value="value"
-                class="input-dark"
-                placeholder="Select session"
-              />
-            </label>
-
-            <label class="field">
-              <span>Emotion</span>
-              <PDropdown
-                v-model="draft.emotion"
-                :options="tradeEmotionOptions"
-                option-label="label"
-                option-value="value"
-                class="input-dark"
-                placeholder="Select emotion"
-              />
+              <div class="field-static">{{ autoSessionLabel }}</div>
             </label>
           </div>
         </section>
@@ -335,8 +336,8 @@ async function submit() {
             </label>
 
             <label class="field">
-              <span>Hold minutes</span>
-              <input v-model.number="draft.holdMinutes" type="number" step="1" class="form-input form-input--number" />
+              <span>Duration</span>
+              <div class="field-static">{{ durationLabel }}</div>
             </label>
 
             <label class="field">
