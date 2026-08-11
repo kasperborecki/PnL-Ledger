@@ -3306,6 +3306,82 @@ a {
   white-space: nowrap;
 }
 
+.pair-grade-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.75fr) minmax(120px, 180px);
+  gap: 14px;
+  align-items: end;
+}
+
+.pair-grade-date {
+  display: grid;
+  gap: 8px;
+  min-height: 68px;
+  align-content: end;
+}
+
+.pair-grade-date span {
+  color: var(--text-soft);
+  text-transform: uppercase;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  font-weight: 800;
+}
+
+.pair-grade-date strong {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.pair-grade-save {
+  min-height: 44px;
+}
+
+.pair-grade-list {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+}
+
+.pair-grade-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: 14px;
+  align-items: center;
+  min-height: 68px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.pair-grade-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.pair-grade-main strong {
+  color: var(--text);
+  font-weight: 850;
+}
+
+.pair-grade-main span {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.pair-grade-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .setup-plan-list {
   display: grid;
   gap: 10px;
@@ -3833,7 +3909,8 @@ a {
   .forum-profile-trade,
   .form-grid--2,
   .form-grid--3,
-  .form-grid--4 {
+  .form-grid--4,
+  .pair-grade-form {
     grid-template-columns: 1fr;
   }
 
@@ -3973,6 +4050,7 @@ a {
 
   .setup-evaluation-history-row,
   .trade-evaluation-row,
+  .pair-grade-row,
   .setup-plan-row,
   .setup-plan-actions,
   .evaluation-preview-head,
