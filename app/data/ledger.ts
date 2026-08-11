@@ -77,6 +77,7 @@ export const navigationItems: NavigationItem[] = [
   { label: 'Calendar', to: '/calendar', icon: 'mdi-calendar-month-outline' },
   { label: 'Journal', to: '/journal', icon: 'mdi-notebook-outline' },
   { label: 'Playbook', to: '/playbook', icon: 'mdi-bullseye-arrow' },
+  { label: 'Setups', to: '/setups', icon: 'mdi-tune-variant' },
   { label: 'Lot Calculator', to: '/lot-calculator', icon: 'mdi-calculator-variant-outline' },
   { label: 'Plugins', to: '/plugins', icon: 'mdi-puzzle-outline' },
   { label: 'Settings', to: '/settings', icon: 'mdi-cog-outline' },

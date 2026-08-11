@@ -1747,6 +1747,23 @@ export function useLedger() {
       await saveTradeScreenshots(currentUser.id, tradeId, validated.screenshots)
     }
 
+    try {
+      const { error: evaluationLinkError } = await supabase
+        .from('trade_setup_evaluations')
+        .update({
+          trade_id: tradeId,
+          open_trade_id: null,
+        })
+        .eq('open_trade_id', openTradeId)
+        .eq('user_id', currentUser.id)
+
+      if (evaluationLinkError) {
+        throw evaluationLinkError
+      }
+    } catch (caught) {
+      console.warn('Failed to relink setup evaluations to the closed trade.', caught)
+    }
+
     const { error: deleteError } = await supabase
       .from('open_trades')
       .delete()

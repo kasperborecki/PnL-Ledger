@@ -7,6 +7,7 @@ const props = defineProps<{
 }>()
 
 const ledger = useLedger()
+const setupEngine = useTradingSetups()
 
 const tradeActionBusy = ref(false)
 const isImagePreviewOpen = ref(false)
@@ -15,6 +16,27 @@ const previewImageTitle = ref('')
 
 function fixed(value: number | undefined, digits = 1) {
   return Number.isFinite(value) ? Number(value).toFixed(digits) : '-'
+}
+
+const setupEvaluations = computed(() =>
+  props.trade
+    ? setupEngine.evaluations.value
+      .filter((evaluation) => evaluation.trade_id === props.trade?.id)
+      .sort((left, right) => String(right.graded_at).localeCompare(String(left.graded_at)))
+    : [],
+)
+
+function setupName(setupId: string) {
+  return setupEngine.setupSummaries.value.find((setup) => setup.id === setupId)?.name ?? 'Setup'
+}
+
+function formatEvaluationDate(value: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
 }
 
 async function handleEditTrade() {
@@ -36,6 +58,14 @@ async function handleDeleteTrade() {
   } finally {
     tradeActionBusy.value = false
   }
+}
+
+async function openTradeEvaluation() {
+  if (!props.trade) {
+    return
+  }
+
+  await navigateTo(`/setups?trade=${props.trade.id}`)
 }
 
 function openImagePreview(url: string | null, title: string) {
@@ -60,6 +90,14 @@ function openImagePreview(url: string | null, title: string) {
           </p>
         </div>
         <div class="d-flex ga-2 flex-wrap">
+          <PButton
+            type="button"
+            label="Grade Setup"
+            icon="pi pi-check-circle"
+            text
+            class="input-dark action-primary"
+            @click="openTradeEvaluation"
+          />
           <PButton
             type="button"
             label="Edit"
@@ -160,7 +198,36 @@ function openImagePreview(url: string | null, title: string) {
               <div class="detail-label">Emotion</div>
             <div class="detail-value">{{ props.trade.emotion }}</div>
             </div>
+        </div>
+
+        <div>
+          <div class="section-title">
+            <div>
+              <h2>Setup Evaluations</h2>
+              <p>Saved setup scores linked to this trade.</p>
+            </div>
           </div>
+
+          <div v-if="setupEvaluations.length" class="trade-evaluation-list">
+            <div v-for="evaluation in setupEvaluations" :key="evaluation.id" class="trade-evaluation-row">
+              <div>
+                <div class="trade-evaluation-title">{{ setupName(evaluation.setup_id) }}</div>
+                <div class="trade-evaluation-meta">
+                  {{ formatEvaluationDate(evaluation.graded_at) }} - {{ evaluation.evaluation_type.replaceAll('_', ' ') }}
+                </div>
+              </div>
+              <div class="trade-evaluation-score">
+                <strong>{{ Number(evaluation.raw_score).toFixed(1) }} / {{ Number(evaluation.max_score).toFixed(1) }}</strong>
+                <span>{{ Number(evaluation.normalized_percentage).toFixed(1) }}% - {{ evaluation.grade_label || 'No grade' }}</span>
+              </div>
+              <PTag :value="evaluation.is_valid ? 'Valid' : 'Invalid'" :severity="evaluation.is_valid ? 'success' : 'danger'" />
+            </div>
+          </div>
+
+          <div v-else class="upload-empty">
+            No setup evaluations linked yet.
+          </div>
+        </div>
 
         <div>
           <div class="section-title">

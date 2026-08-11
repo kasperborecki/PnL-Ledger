@@ -4,6 +4,7 @@ const ledger = useLedger()
 
 const title = computed(() => String(route.meta.title ?? 'P&L Ledger'))
 const subtitle = computed(() => String(route.meta.subtitle ?? 'Trading Journal & Performance Tracker'))
+const showLedgerControls = computed(() => route.meta.ledgerControls !== false)
 const symbolOptions = computed(() => ledger.symbolOptions.value)
 const setupOptions = computed(() => ledger.setupOptions.value)
 const sessionOptions = computed(() => ledger.sessionOptions)
@@ -55,7 +56,7 @@ function setTimeframe(value: string) {
         </div>
       </div>
 
-      <div class="topbar-primary">
+      <div v-if="showLedgerControls" class="topbar-primary">
         <div class="range-chip-group">
           <button
             v-for="option in ledger.rangeOptions"
@@ -70,7 +71,7 @@ function setTimeframe(value: string) {
       </div>
     </div>
 
-    <div class="topbar-filters">
+    <div v-if="showLedgerControls" class="topbar-filters">
       <PDropdown
         v-model="selectedSymbol"
         :options="symbolOptions"
