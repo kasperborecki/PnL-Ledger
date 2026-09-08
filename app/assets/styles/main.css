@@ -1516,9 +1516,17 @@ a {
   gap: 18px;
 }
 
+.playbook-grid {
+  align-items: start;
+}
+
 .setup-card {
   padding: 20px;
   min-height: 198px;
+}
+
+.playbook-card {
+  cursor: default;
 }
 
 .setup-header {
@@ -1567,6 +1575,206 @@ a {
   margin-top: 6px;
   font-size: 1.05rem;
   font-weight: 800;
+}
+
+.playbook-summary,
+.playbook-section {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.playbook-summary p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.playbook-insights {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.playbook-insight {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(10, 15, 22, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.playbook-insight span,
+.playbook-section-head small,
+.playbook-rr-main span,
+.playbook-rr-main p,
+.playbook-rr-values span,
+.playbook-shot small {
+  color: var(--text-muted);
+}
+
+.playbook-insight span,
+.playbook-section-head small {
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  font-weight: 800;
+}
+
+.playbook-insight strong {
+  display: block;
+  min-width: 0;
+  margin-top: 6px;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playbook-insight strong.positive {
+  color: var(--green);
+}
+
+.playbook-insight strong.negative {
+  color: var(--red);
+}
+
+.playbook-insight strong.warning {
+  color: var(--amber);
+}
+
+.playbook-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.playbook-section-head span {
+  color: var(--text);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.playbook-rr-list {
+  display: grid;
+  gap: 10px;
+}
+
+.playbook-rr-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(10, 15, 22, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.playbook-rank {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.18);
+  color: #bbf7d0;
+  font-weight: 900;
+}
+
+.playbook-rr-main {
+  min-width: 0;
+}
+
+.playbook-rr-main strong {
+  display: block;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playbook-rr-main span {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.84rem;
+}
+
+.playbook-rr-main p {
+  display: -webkit-box;
+  margin: 8px 0 0;
+  overflow: hidden;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.playbook-rr-values {
+  display: grid;
+  gap: 4px;
+  min-width: 76px;
+  justify-items: end;
+  white-space: nowrap;
+}
+
+.playbook-rr-values strong {
+  color: var(--text);
+}
+
+.playbook-gallery {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.playbook-shot {
+  appearance: none;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(10, 15, 22, 0.74);
+  color: var(--text);
+  text-align: left;
+  cursor: zoom-in;
+}
+
+.playbook-shot:hover {
+  border-color: rgba(34, 197, 94, 0.26);
+}
+
+.playbook-shot img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  display: block;
+}
+
+.playbook-shot span,
+.playbook-shot small {
+  display: block;
+  overflow: hidden;
+  padding-inline: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playbook-shot span {
+  padding-top: 9px;
+  font-size: 0.86rem;
+  font-weight: 850;
+}
+
+.playbook-shot small {
+  padding-bottom: 10px;
+  font-size: 0.78rem;
 }
 
 .journal-day {
@@ -2825,6 +3033,14 @@ a {
   transform: translateY(-1px);
 }
 
+.playbook-card {
+  cursor: default;
+}
+
+.playbook-card:hover {
+  transform: none;
+}
+
 .setup-card-head,
 .setup-card-line,
 .setup-title-row,
@@ -4070,6 +4286,20 @@ a {
   .setup-card-actions,
   .setup-actions {
     justify-content: flex-start;
+  }
+
+  .playbook-insights,
+  .playbook-gallery {
+    grid-template-columns: 1fr;
+  }
+
+  .playbook-rr-row {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .playbook-rr-values {
+    grid-column: 2;
+    justify-items: start;
   }
 
   .setup-tabs,
