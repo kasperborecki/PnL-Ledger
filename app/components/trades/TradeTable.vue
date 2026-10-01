@@ -47,7 +47,7 @@ function directionSeverity(direction: Trade['direction']) {
       responsive-layout="scroll"
       :selection="tradeById(selectedId)"
       selection-mode="single"
-      @row-click="(event) => emit('select', event.data)"
+      @row-click="(event: { data: Trade }) => emit('select', event.data)"
     >
       <PColumn field="date" header="Date">
         <template #body="{ data }">

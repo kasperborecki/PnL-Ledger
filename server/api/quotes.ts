@@ -48,7 +48,7 @@ const YAHOO_TARGETS: Record<string, string[]> = {
 
 const FX_FALLBACK_SYMBOLS = new Set<SupportedSymbol>(['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'EURCHF', 'GBPCHF'])
 
-function parseRequestedSymbols(query: Record<string, string | string[] | undefined>) {
+function parseRequestedSymbols(query: Record<string, unknown>) {
   const rawValues = [query.symbol, query.symbols]
     .flatMap((value) => (Array.isArray(value) ? value : [value]))
     .filter((value): value is string => typeof value === 'string' && value.length > 0)
@@ -80,6 +80,9 @@ function resolveFxFallback(symbol: SupportedSymbol, usdRates: Record<string, num
   }
 
   const [, baseCurrency, quoteCurrency] = match
+  if (!baseCurrency || !quoteCurrency) {
+    return null
+  }
   const baseRate = baseCurrency === 'USD' ? 1 : usdRates[baseCurrency]
   const quoteRate = quoteCurrency === 'USD' ? 1 : usdRates[quoteCurrency]
 

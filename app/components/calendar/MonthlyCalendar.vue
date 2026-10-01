@@ -1,14 +1,5 @@
 <script setup lang="ts">
-type CalendarDay = {
-  key: string
-  empty: boolean
-  day: number | null
-  date: string | null
-  pnl: number
-  trades: number
-  status: 'none' | 'positive' | 'negative' | 'neutral'
-  label: string
-}
+import type { CalendarDay } from '~/data/ledger'
 
 import { computed } from 'vue'
 

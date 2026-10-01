@@ -372,8 +372,8 @@ async function saveProfile() {
     })
 
     if (safeAvatarFile) {
-      const fileExtension = avatarFile.value.name.includes('.')
-        ? `.${avatarFile.value.name.split('.').pop()?.toLowerCase() ?? 'png'}`
+      const fileExtension = safeAvatarFile.name.includes('.')
+        ? `.${safeAvatarFile.name.split('.').pop()?.toLowerCase() ?? 'png'}`
         : '.png'
       const filePath = `${currentUser.id}/${crypto.randomUUID()}${fileExtension}`
       const { error: uploadError } = await supabase.storage

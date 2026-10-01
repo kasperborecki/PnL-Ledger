@@ -51,7 +51,7 @@ const supabase = useSupabase()
 const auth = useAuth()
 const accounts = useTradingAccounts()
 
-const fallbackInstruments: InstrumentProfile[] = [
+const fallbackInstruments: [InstrumentProfile, ...InstrumentProfile[]] = [
   { symbol: 'EURUSD', label: 'EUR/USD', assetClass: 'forex', pipSize: 0.0001, contractSize: 100000, lotStep: 0.01, quoteCurrency: 'USD', quotePrecision: 5 },
   { symbol: 'GBPUSD', label: 'GBP/USD', assetClass: 'forex', pipSize: 0.0001, contractSize: 100000, lotStep: 0.01, quoteCurrency: 'USD', quotePrecision: 5 },
   { symbol: 'USDJPY', label: 'USD/JPY', assetClass: 'forex', pipSize: 0.01, contractSize: 100000, lotStep: 0.01, quoteCurrency: 'JPY', quotePrecision: 3 },
@@ -399,12 +399,13 @@ if (import.meta.client) {
     instrumentLibrary,
     (items) => {
       const currentSymbol = normalizeSymbol(form.symbol)
-      if (!items.length) {
+      const firstInstrument = items[0]
+      if (!firstInstrument) {
         return
       }
 
       if (!items.some((item) => item.symbol === currentSymbol)) {
-        form.symbol = items[0].symbol
+        form.symbol = firstInstrument.symbol
       }
     },
     { immediate: true },

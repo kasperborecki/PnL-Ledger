@@ -51,11 +51,7 @@ function setTimeframe(value: string) {
         </div>
       </div>
 
-<<<<<<< HEAD
-      <div v-if="showTradeFilters" class="topbar-primary">
-=======
-      <div v-if="showLedgerControls" class="topbar-primary">
->>>>>>> 7dab041800c84a8aa4b3b0e0433ab0d4e11dbcaa
+      <div v-if="showLedgerControls && showTradeFilters" class="topbar-primary">
         <div class="range-chip-group">
           <button
             v-for="option in ledger.rangeOptions"
@@ -70,13 +66,9 @@ function setTimeframe(value: string) {
       </div>
     </div>
 
-<<<<<<< HEAD
-    <div class="topbar-filters">
+    <div v-if="showLedgerControls" class="topbar-filters">
       <PDropdown v-model="accounts.selectedId.value" :options="accounts.options.value" option-label="label" option-value="value" class="input-dark" placeholder="Account" aria-label="Account filter" style="min-width: 220px" />
       <PDropdown v-if="accounts.selectedId.value === 'All'" v-model="accounts.reportingCurrency.value" :options="accounts.currencies.value" class="input-dark" aria-label="Reporting currency" style="min-width: 100px" />
-=======
-    <div v-if="showLedgerControls" class="topbar-filters">
->>>>>>> 7dab041800c84a8aa4b3b0e0433ab0d4e11dbcaa
       <PDropdown
         v-if="showTradeFilters"
         v-model="selectedSymbol"

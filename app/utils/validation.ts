@@ -39,7 +39,8 @@ function isValidClockTime(value: string) {
     return false
   }
 
-  const [hours, minutes] = value.split(':').map(Number)
+  const hours = Number(value.slice(0, 2))
+  const minutes = Number(value.slice(3, 5))
   return Number.isInteger(hours) && Number.isInteger(minutes) && hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60
 }
 

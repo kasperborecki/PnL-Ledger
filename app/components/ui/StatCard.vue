@@ -1,12 +1,7 @@
 <script setup lang="ts">
-const props = defineProps<{
-  label: string
-  value: string
-  note?: string
-  icon: string
-  tone?: 'positive' | 'negative' | 'warning' | 'neutral'
-  progress?: number
-}>()
+import type { DashboardKpi } from '~/data/ledger'
+
+const props = defineProps<DashboardKpi>()
 
 const toneClass = computed(() => props.tone ?? 'neutral')
 </script>

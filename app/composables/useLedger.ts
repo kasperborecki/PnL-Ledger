@@ -6,6 +6,8 @@ import {
   sessionOptions,
   setupOptions as fallbackSetupOptions,
   symbolOptions as fallbackSymbolOptions,
+  type CalendarDay,
+  type DashboardKpi,
   type OpenTrade,
   type Trade,
   type TradeScreenshot,
@@ -266,7 +268,7 @@ function todayKey() {
 }
 
 function toLocalDateTime(date: string, time: string) {
-  const [year, month, day] = date.split('-').map(Number)
+  const [year = NaN, month, day] = date.split('-').map(Number)
   const [hours, minutes] = time.split(':').map(Number)
   return new Date(year, (month || 1) - 1, day || 1, hours || 0, minutes || 0, 0, 0)
 }
@@ -497,7 +499,7 @@ function validateTradeSubmission(
   const time = requireTime(draft.time, 'Trade time')
   const symbol = requireChoice(draft.symbol, 'Symbol', allowedSymbols)
   const setup = requireChoice(draft.setup, 'Setup', allowedSetups)
-  const result = requireChoice(draft.result, 'Result', ['Win', 'Loss', 'BE'])
+  const result = requireChoice(draft.result, 'Result', ['Win', 'Loss', 'BE']) as Trade['result']
 
   if (!/^[A-Z0-9/_-]{1,20}$/.test(symbol)) {
     throw new Error('Symbol can only contain letters, numbers, slash, dash or underscore.')
@@ -644,7 +646,7 @@ function buildCalendar(series: Trade[], monthKey: string) {
     grouped.set(day.date, day)
   }
 
-  const days = []
+  const days: CalendarDay[] = []
   const [yearPart, monthPart] = monthKey.split('-')
   const year = Number(yearPart)
   const month = Number(monthPart) - 1
@@ -1444,8 +1446,8 @@ export function useLedger() {
 
       normalizeFilterSelections()
 
-      if (nextTrades.length) {
-        const fallbackTrade = nextTrades[0]
+      const fallbackTrade = nextTrades[0]
+      if (fallbackTrade) {
         const currentSelection = nextTrades.find((trade) => trade.id === selectedTradeId.value) ?? fallbackTrade
         selectedTradeId.value = currentSelection.id
 
@@ -1462,9 +1464,10 @@ export function useLedger() {
         selectedMonth.value = `${todayKey().slice(0, 7)}` as CalendarMonth
       }
 
-      if (nextOpenTrades.length) {
+      const fallbackOpenTrade = nextOpenTrades[0]
+      if (fallbackOpenTrade) {
         if (!nextOpenTrades.some((trade) => trade.id === selectedOpenTradeId.value)) {
-          selectedOpenTradeId.value = !nextTrades.length ? nextOpenTrades[0].id : ''
+          selectedOpenTradeId.value = !nextTrades.length ? fallbackOpenTrade.id : ''
         }
       } else {
         selectedOpenTradeId.value = ''
@@ -1558,12 +1561,12 @@ export function useLedger() {
 
     let openTradeId = editingOpenTradeId.value
 
-    if (editingOpenTradeId.value) {
-      const existingOpenTrade = openTradeItems.value.find((item) => item.id === editingOpenTradeId.value)
+    if (openTradeId) {
+      const existingOpenTrade = openTradeItems.value.find((item) => item.id === openTradeId)
       const { error } = await supabase
         .from('open_trades')
         .update(payload)
-        .eq('id', editingOpenTradeId.value)
+        .eq('id', openTradeId)
         .eq('user_id', currentUser.id)
 
       if (error) {
@@ -1572,7 +1575,7 @@ export function useLedger() {
 
       if (validated.screenshot.file) {
         try {
-          const uploadedScreenshot = await uploadOpenTradeScreenshot(currentUser.id, editingOpenTradeId.value, {
+          const uploadedScreenshot = await uploadOpenTradeScreenshot(currentUser.id, openTradeId, {
             label: validated.screenshot.label,
             file: validated.screenshot.file,
           })
@@ -1584,7 +1587,7 @@ export function useLedger() {
               screenshot_storage_path: uploadedScreenshot.storagePath,
               screenshot_public_url: uploadedScreenshot.publicUrl,
             })
-            .eq('id', editingOpenTradeId.value)
+            .eq('id', openTradeId)
             .eq('user_id', currentUser.id)
 
           if (updateError) {
@@ -2192,7 +2195,7 @@ export function useLedger() {
     }
 
     return [
-      fallbackSymbolOptions[0],
+      { label: 'All Symbols', value: 'All' },
       ...activeInstruments.map((instrument) => ({
         label: instrument.display_name || instrument.symbol,
         value: instrument.symbol,
@@ -2373,7 +2376,7 @@ export function useLedger() {
       .sort((a, b) => b.date.localeCompare(a.date))
   })
 
-  const dashboardKpis = computed(() => [
+  const dashboardKpis = computed<DashboardKpi[]>(() => [
     {
       label: 'P&L',
       value: formatSign(stats.value.netPnl),

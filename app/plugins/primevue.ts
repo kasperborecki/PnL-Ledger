@@ -1,15 +1,15 @@
 import PrimeVue from 'primevue/config'
 import Aura from '@primeuix/themes/aura'
-import { defineComponent, h } from 'vue'
+import { defineComponent, h, type PropType } from 'vue'
 import Badge from 'primevue/badge'
 import Button from 'primevue/button'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Dialog from 'primevue/dialog'
-import Dropdown from 'primevue/dropdown'
+import Dropdown, { type DropdownProps } from 'primevue/dropdown'
 import InputText from 'primevue/inputtext'
 import InputNumber from 'primevue/inputnumber'
-import MultiSelect from 'primevue/multiselect'
+import MultiSelect, { type MultiSelectProps } from 'primevue/multiselect'
 import SelectButton from 'primevue/selectbutton'
 import Tag from 'primevue/tag'
 import Textarea from 'primevue/textarea'
@@ -17,17 +17,20 @@ import Textarea from 'primevue/textarea'
 const AppDropdown = defineComponent({
   name: 'AppDropdown',
   inheritAttrs: false,
-  setup(_, { attrs, slots }) {
+  props: {
+    filter: { type: Boolean, default: true },
+    filterPlaceholder: { type: String, default: 'Search...' },
+    resetFilterOnHide: { type: Boolean, default: true },
+    autoFilterFocus: { type: Boolean, default: true },
+    appendTo: { type: [String, Object] as PropType<DropdownProps['appendTo']>, default: 'self' },
+  },
+  setup(props, { attrs, slots }) {
     return () =>
       h(
         Dropdown,
         {
-          filter: attrs.filter ?? true,
-          filterPlaceholder: attrs.filterPlaceholder ?? 'Search...',
-          resetFilterOnHide: attrs.resetFilterOnHide ?? true,
-          autoFilterFocus: attrs.autoFilterFocus ?? true,
+          ...props,
           ...attrs,
-          appendTo: attrs.appendTo ?? 'self',
         },
         slots,
       )
@@ -37,13 +40,16 @@ const AppDropdown = defineComponent({
 const AppMultiSelect = defineComponent({
   name: 'AppMultiSelect',
   inheritAttrs: false,
-  setup(_, { attrs, slots }) {
+  props: {
+    appendTo: { type: [String, Object] as PropType<MultiSelectProps['appendTo']>, default: 'self' },
+  },
+  setup(props, { attrs, slots }) {
     return () =>
       h(
         MultiSelect,
         {
+          ...props,
           ...attrs,
-          appendTo: attrs.appendTo ?? 'self',
         },
         slots,
       )

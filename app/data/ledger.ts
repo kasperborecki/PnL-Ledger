@@ -3,6 +3,26 @@ export type TradeResult = 'Win' | 'Loss' | 'BE'
 export type TradeSession = 'Asia' | 'London' | 'New York'
 export type TradeEmotion = string
 
+export interface CalendarDay {
+  key: string
+  empty: boolean
+  day: number | null
+  date: string | null
+  pnl: number
+  trades: number
+  status: 'none' | 'positive' | 'negative' | 'neutral'
+  label: string
+}
+
+export interface DashboardKpi {
+  label: string
+  value: string
+  note?: string
+  icon: string
+  tone?: 'positive' | 'negative' | 'warning' | 'neutral'
+  progress?: number
+}
+
 export interface TradeScreenshot {
   label: string
   url: string | null

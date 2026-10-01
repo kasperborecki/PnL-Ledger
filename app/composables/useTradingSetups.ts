@@ -881,6 +881,7 @@ export function useTradingSetups() {
     const to = builderDraft.value.sections.findIndex((section) => section.uid === toUid)
     if (from < 0 || to < 0 || from === to) return
     const [item] = builderDraft.value.sections.splice(from, 1)
+    if (!item) return
     builderDraft.value.sections.splice(to, 0, item)
     builderDraft.value.sections.forEach((section, index) => { section.sortOrder = index })
   }
@@ -892,6 +893,7 @@ export function useTradingSetups() {
     const to = section.criteria.findIndex((criterion) => criterion.uid === toUid)
     if (from < 0 || to < 0 || from === to) return
     const [item] = section.criteria.splice(from, 1)
+    if (!item) return
     section.criteria.splice(to, 0, item)
     section.criteria.forEach((criterion, index) => { criterion.sortOrder = index })
   }
