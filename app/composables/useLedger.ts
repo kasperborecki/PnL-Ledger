@@ -1839,6 +1839,23 @@ export function useLedger() {
       await saveTradeScreenshots(currentUser.id, tradeId, validated.screenshots)
     }
 
+    try {
+      const { error: evaluationLinkError } = await supabase
+        .from('trade_setup_evaluations')
+        .update({
+          trade_id: tradeId,
+          open_trade_id: null,
+        })
+        .eq('open_trade_id', openTradeId)
+        .eq('user_id', currentUser.id)
+
+      if (evaluationLinkError) {
+        throw evaluationLinkError
+      }
+    } catch (caught) {
+      console.warn('Failed to relink setup evaluations to the closed trade.', caught)
+    }
+
     const { error: deleteError } = await supabase
       .from('open_trades')
       .delete()
@@ -1872,6 +1889,37 @@ export function useLedger() {
     closingOpenTradeId.value = null
     openTradeDraft.value = createOpenTradeDraft(date)
     openTradeDraft.value.accountId = accounts.defaultAccountId()
+    isOpenTradeDialogOpen.value = true
+  }
+
+  function openStartTradeDialogFromPlan(plan: {
+    symbol: string
+    direction: Trade['direction']
+    setup: string
+    entry: number
+    stopLoss: number
+    takeProfit: number
+    size: number
+    riskPercent: number
+    thesis: string
+    notes: string
+  }) {
+    openTradeDialogMode.value = 'start'
+    editingOpenTradeId.value = null
+    closingOpenTradeId.value = null
+    openTradeDraft.value = {
+      ...createOpenTradeDraft(),
+      symbol: plan.symbol,
+      direction: plan.direction,
+      setup: plan.setup || 'Breakout',
+      entry: plan.entry,
+      stopLoss: plan.stopLoss,
+      takeProfit: plan.takeProfit,
+      size: plan.size,
+      riskPercent: plan.riskPercent,
+      whyEntered: plan.thesis,
+      notes: plan.notes,
+    }
     isOpenTradeDialogOpen.value = true
   }
 
@@ -2442,6 +2490,7 @@ export function useLedger() {
     journalDays,
     openTradeDialog,
     openStartTradeDialog,
+    openStartTradeDialogFromPlan,
     openOpenTradeEditDialog,
     openOpenTradeCloseDialog,
     openTradeEditDialog,
