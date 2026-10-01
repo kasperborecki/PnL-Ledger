@@ -6,10 +6,11 @@ definePageMeta({
   subtitle: 'Position sizing with live quotes and broker-style pip values',
 })
 
-const auth = useAuth()
-const defaultStartingBalance = computed(() => auth.currentBalance.value ?? 0)
+const accounts = useTradingAccounts()
+const defaultStartingBalance = computed(() => accounts.balance.value ?? 0)
 </script>
 
 <template>
-  <PositionCalculator :default-starting-balance="defaultStartingBalance" />
+  <p v-if="!accounts.selected.value" class="muted mb-4">Select an account above to use its balance for position sizing.</p>
+  <PositionCalculator :key="accounts.selectedId.value" :default-starting-balance="defaultStartingBalance" />
 </template>

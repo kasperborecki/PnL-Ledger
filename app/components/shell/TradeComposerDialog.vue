@@ -2,6 +2,8 @@
 import ImagePreviewDialog from '~/components/ui/ImagePreviewDialog.vue'
 
 const ledger = useLedger()
+const accounts = useTradingAccounts()
+const accountOptions = computed(() => accounts.accounts.value.filter(a => a.status === 'active' || a.id === ledger.newTradeDraft.value.accountId).map(a => ({ label: `${a.name} · ${a.currency}`, value: a.id })))
 const beforeScreenshot = ref<File | null>(null)
 const afterScreenshot = ref<File | null>(null)
 const submitError = ref<string | null>(null)
@@ -232,6 +234,11 @@ async function submit() {
     </template>
 
     <form class="trade-form mt-4" @submit.prevent="submit">
+      <label class="field mb-4">
+        <span>Trading account</span>
+        <PDropdown v-model="draft.accountId" :options="accountOptions" option-label="label" option-value="value" class="input-dark" placeholder="Choose an account" />
+        <NuxtLink v-if="!accountOptions.length" to="/accounts" @click="closeDialog">Create an account first</NuxtLink>
+      </label>
       <div class="trade-form-grid">
         <section class="trade-form-section">
           <div class="trade-form-section-title">Trade info</div>

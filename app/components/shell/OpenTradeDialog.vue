@@ -2,6 +2,8 @@
 import ImagePreviewDialog from '~/components/ui/ImagePreviewDialog.vue'
 
 const ledger = useLedger()
+const accounts = useTradingAccounts()
+const accountOptions = computed(() => accounts.accounts.value.filter(a => a.status === 'active' || a.id === ledger.openTradeDraft.value.accountId).map(a => ({ label: `${a.name} · ${a.currency}`, value: a.id })))
 const startScreenshot = ref<File | null>(null)
 const afterScreenshot = ref<File | null>(null)
 const submitError = ref<string | null>(null)
@@ -25,7 +27,7 @@ const isCloseMode = computed(() => mode.value === 'close')
 const isEditMode = computed(() => mode.value === 'edit')
 const startDraft = ledger.openTradeDraft
 const closeDraft = ledger.closeTradeDraft
-const selectedOpenTrade = computed(() => ledger.selectedOpenTrade.value)
+const selectedOpenTrade = computed(() => ledger.openTrades.value.find(trade => trade.id === ledger.selectedOpenTradeId.value) ?? null)
 
 const dialogTitle = computed(() => {
   if (isCloseMode.value) {
@@ -266,6 +268,12 @@ async function submit() {
     </template>
 
     <form class="trade-form mt-4" @submit.prevent="submit">
+      <label v-if="!isCloseMode" class="field mb-4">
+        <span>Trading account</span>
+        <PDropdown v-model="startDraft.accountId" :options="accountOptions" option-label="label" option-value="value" class="input-dark" placeholder="Choose an account" />
+        <NuxtLink v-if="!accountOptions.length" to="/accounts" @click="closeDialog">Create an account first</NuxtLink>
+      </label>
+      <p v-else class="muted mb-4">Account: {{ accounts.accounts.value.find(a => a.id === closeDraft.accountId)?.name }}</p>
       <div v-if="!isCloseMode" class="trade-form-grid">
         <section class="trade-form-section">
           <div class="trade-form-section-title">Trade info</div>

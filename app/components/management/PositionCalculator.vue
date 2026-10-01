@@ -49,6 +49,7 @@ const props = defineProps<{
 
 const supabase = useSupabase()
 const auth = useAuth()
+const accounts = useTradingAccounts()
 
 const fallbackInstruments: InstrumentProfile[] = [
   { symbol: 'EURUSD', label: 'EUR/USD', assetClass: 'forex', pipSize: 0.0001, contractSize: 100000, lotStep: 0.01, quoteCurrency: 'USD', quotePrecision: 5 },
@@ -235,7 +236,7 @@ const instrumentLibrary = computed(() => {
 const instrumentMap = computed(() => new Map(instrumentLibrary.value.map((instrument) => [instrument.symbol, instrument] as const)))
 const selectedInstrument = computed(() => instrumentMap.value.get(normalizeSymbol(form.symbol)) ?? instrumentLibrary.value[0] ?? fallbackInstruments[0])
 const selectedQuoteRow = computed(() => quoteMap.value[normalizeSymbol(form.symbol)] ?? null)
-const accountCurrency = computed(() => normalizeCurrency(auth.profile.value?.baseCurrency ?? BASE_CURRENCY))
+const accountCurrency = computed(() => accounts.currency.value)
 const accountBalanceLabel = computed(() => `Account Balance (${accountCurrency.value}):`)
 const accountBalance = computed(() => Math.max(0, Number(form.startingBalance) || 0))
 const riskPercent = computed(() => Math.max(0, Number(form.riskPercent) || 0))

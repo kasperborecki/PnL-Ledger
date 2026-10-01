@@ -17,6 +17,7 @@ const emit = defineEmits<{
 }>()
 
 const ledger = useLedger()
+const accounts = useTradingAccounts()
 const safeTrades = computed(() => props.trades ?? [])
 
 function tradeById(id?: string) {
@@ -55,6 +56,9 @@ function directionSeverity(direction: Trade['direction']) {
       </PColumn>
 
       <PColumn field="time" header="Time" />
+      <PColumn field="accountId" header="Account">
+        <template #body="{ data }">{{ accounts.accounts.value.find(a => a.id === data.accountId)?.name ?? '—' }}</template>
+      </PColumn>
       <PColumn field="symbol" header="Symbol">
         <template #body="{ data }">
           <strong>{{ data.symbol }}</strong>

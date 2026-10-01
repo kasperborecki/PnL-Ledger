@@ -10,6 +10,7 @@ export interface TradeScreenshot {
 
 export interface Trade {
   id: string
+  accountId: string
   date: string
   time: string
   symbol: string
@@ -39,6 +40,7 @@ export interface Trade {
 
 export interface OpenTrade {
   id: string
+  accountId: string
   date: string
   time: string
   symbol: string
@@ -71,6 +73,7 @@ export interface SelectOption {
 
 export const navigationItems: NavigationItem[] = [
   { label: 'Dashboard', to: '/dashboard', icon: 'mdi-view-grid-outline' },
+  { label: 'Accounts', to: '/accounts', icon: 'mdi-wallet-outline' },
   { label: 'Trades', to: '/trades', icon: 'mdi-book-open-page-variant-outline' },
   { label: 'Forum', to: '/forum', icon: 'mdi-forum-outline' },
   { label: 'Analytics', to: '/analytics', icon: 'mdi-chart-box-outline' },

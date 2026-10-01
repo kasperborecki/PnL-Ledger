@@ -4,10 +4,11 @@ import { navigationItems } from '~/data/ledger'
 const route = useRoute()
 const ledger = useLedger()
 const auth = useAuth()
+const accounts = useTradingAccounts()
 
 const accountName = computed(() => auth.displayName.value)
 const accountInitials = computed(() => auth.initials.value)
-const accountBalance = computed(() => ledger.formatMoney(auth.currentBalance.value ?? 0))
+const accountBalance = computed(() => accounts.balance.value === null ? `${accounts.accounts.value.filter(a => a.status === 'active').length} active` : accounts.money(accounts.balance.value))
 const accountBalanceStyle = computed(() => {
   const length = accountBalance.value.replace(/\s+/g, '').length
 

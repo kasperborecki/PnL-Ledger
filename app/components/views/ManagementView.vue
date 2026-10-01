@@ -10,7 +10,6 @@ import {
 } from '~/utils/validation'
 
 type AssetClass = 'forex' | 'index' | 'commodity' | 'crypto' | 'stock'
-type TransactionType = 'deposit' | 'withdrawal' | 'adjustment' | 'fee' | 'transfer_in' | 'transfer_out'
 
 type InstrumentRow = {
   symbol: string
@@ -24,16 +23,6 @@ type InstrumentRow = {
   sort_order: number | string
   notes: string
   is_active: boolean
-}
-
-type TransactionRow = {
-  id: string
-  transaction_type: TransactionType
-  amount: number | string
-  currency: string
-  happened_at: string
-  notes: string
-  trade_id: string | null
 }
 
 type LookupRow = {
@@ -55,14 +44,6 @@ type InstrumentForm = {
   sortOrder: number
   notes: string
   isActive: boolean
-}
-
-type TransactionForm = {
-  transactionType: TransactionType
-  amount: number
-  currency: string
-  happenedAt: string
-  notes: string
 }
 
 type LookupForm = {
@@ -89,13 +70,11 @@ const savingProfile = ref(false)
 const savingInstrument = ref(false)
 const savingStrategy = ref(false)
 const savingEmotion = ref(false)
-const savingTransaction = ref(false)
 const avatarInput = ref<HTMLInputElement | null>(null)
 
 const instruments = ref<InstrumentRow[]>([])
 const strategyRows = ref<LookupRow[]>([])
 const emotionRows = ref<LookupRow[]>([])
-const transactions = ref<TransactionRow[]>([])
 const editingSymbol = ref<string | null>(null)
 const editingStrategyName = ref<string | null>(null)
 const editingEmotionName = ref<string | null>(null)
@@ -110,15 +89,6 @@ const profileForm = reactive<ProfileForm>({
   displayName: '',
   timezone: 'Europe/Warsaw',
 })
-
-const transactionTypeOptions: Array<{ label: string; value: TransactionType }> = [
-  { label: 'Deposit', value: 'deposit' },
-  { label: 'Withdrawal', value: 'withdrawal' },
-  { label: 'Adjustment', value: 'adjustment' },
-  { label: 'Fee', value: 'fee' },
-  { label: 'Transfer In', value: 'transfer_in' },
-  { label: 'Transfer Out', value: 'transfer_out' },
-]
 
 const assetClassOptions: Array<{ label: string; value: AssetClass }> = [
   { label: 'Index', value: 'index' },
@@ -155,22 +125,6 @@ const emotionForm = reactive<LookupForm>({
   sortOrder: 0,
   isActive: true,
 })
-
-const transactionForm = reactive<TransactionForm>({
-  transactionType: 'deposit',
-  amount: 0,
-  currency: BASE_CURRENCY,
-  happenedAt: new Date().toISOString().slice(0, 16),
-  notes: '',
-})
-
-const startingBalanceDraft = ref(0)
-
-function nowLocalValue() {
-  const now = new Date()
-  const offset = now.getTimezoneOffset() * 60000
-  return new Date(now.getTime() - offset).toISOString().slice(0, 16)
-}
 
 function toNumber(value: number | string | null | undefined) {
   return Number(value ?? 0) || 0
@@ -226,20 +180,6 @@ function resetEmotionForm() {
     sortOrder: 0,
     isActive: true,
   } satisfies LookupForm)
-}
-
-function resetTransactionForm() {
-  Object.assign(transactionForm, {
-    transactionType: 'deposit',
-    amount: 0,
-    currency: BASE_CURRENCY,
-    happenedAt: nowLocalValue(),
-    notes: '',
-  } satisfies TransactionForm)
-}
-
-function syncStartingBalanceDraft() {
-  startingBalanceDraft.value = auth.startingBalance.value
 }
 
 function hydrateLookupForm(row: LookupRow, form: LookupForm, editingKey: Ref<string | null>) {
@@ -343,8 +283,6 @@ async function loadManagementData() {
   const currentUser = auth.user.value
   if (!currentUser) {
     instruments.value = []
-    transactions.value = []
-    startingBalanceDraft.value = 0
     return
   }
 
@@ -356,7 +294,6 @@ async function loadManagementData() {
       { data: instrumentRows, error: instrumentError },
       { data: strategyRowsData, error: strategyError },
       { data: emotionRowsData, error: emotionError },
-      { data: transactionRows, error: transactionError },
     ] = await Promise.all([
       supabase
         .from('instruments')
@@ -373,22 +310,15 @@ async function loadManagementData() {
         .select('*')
         .order('sort_order', { ascending: true, nullsFirst: false })
         .order('name', { ascending: true }),
-      supabase
-        .from('account_transactions')
-        .select('*')
-        .eq('user_id', currentUser.id)
-        .order('happened_at', { ascending: false }),
     ])
 
     if (instrumentError) throw instrumentError
     if (strategyError) throw strategyError
     if (emotionError) throw emotionError
-    if (transactionError) throw transactionError
 
     instruments.value = (instrumentRows ?? []) as InstrumentRow[]
     strategyRows.value = (strategyRowsData ?? []) as LookupRow[]
     emotionRows.value = (emotionRowsData ?? []) as LookupRow[]
-    transactions.value = (transactionRows ?? []) as TransactionRow[]
 
     if (!editingSymbol.value) {
       resetInstrumentForm()
@@ -402,8 +332,6 @@ async function loadManagementData() {
       resetEmotionForm()
     }
 
-    resetTransactionForm()
-    syncStartingBalanceDraft()
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : String(caught)
   } finally {
@@ -685,99 +613,6 @@ function editEmotion(row: LookupRow) {
   hydrateLookupForm(row, emotionForm, editingEmotionName)
 }
 
-async function saveTransaction() {
-  await auth.ensureAuthReady()
-  const currentUser = auth.user.value
-  if (!currentUser) {
-    return
-  }
-
-  savingTransaction.value = true
-  error.value = null
-
-  try {
-    const rawAmount = requireNumber(transactionForm.amount, 'Amount', { min: 0.01, max: 1_000_000_000 })
-    const transactionType = requireChoice(
-      transactionForm.transactionType,
-      'Transaction type',
-      transactionTypeOptions.map((option) => option.value),
-    ) as TransactionType
-    const happenedAt = new Date(transactionForm.happenedAt)
-    if (Number.isNaN(happenedAt.getTime())) {
-      throw new Error('Transaction date and time must be valid.')
-    }
-
-    const amount = transactionType === 'withdrawal' || transactionType === 'fee' || transactionType === 'transfer_out'
-      ? -rawAmount
-      : rawAmount
-
-    if (amount === 0) {
-      throw new Error('Transaction amount cannot be zero.')
-    }
-
-    const { error: saveError } = await supabase.from('account_transactions').insert({
-      user_id: currentUser.id,
-      transaction_type: transactionType,
-      amount,
-      currency: BASE_CURRENCY,
-      happened_at: happenedAt.toISOString(),
-      notes: requireText(transactionForm.notes, 'Notes', { allowEmpty: true, maxLength: 500 }),
-    })
-
-    if (saveError) throw saveError
-
-    resetTransactionForm()
-    await refreshEverything()
-  } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : String(caught)
-  } finally {
-    savingTransaction.value = false
-  }
-}
-
-async function deleteTransaction(id: string) {
-  if (!window.confirm('Delete this account transaction?')) {
-    return
-  }
-
-  const { error: deleteError } = await supabase.from('account_transactions').delete().eq('id', id)
-  if (deleteError) {
-    error.value = deleteError.message
-    return
-  }
-
-  await refreshEverything()
-}
-
-async function saveStartingBalance() {
-  await auth.ensureAuthReady()
-  const currentUser = auth.user.value
-  if (!currentUser) {
-    return
-  }
-
-  error.value = null
-
-  const { error: saveError } = await supabase
-    .from('profiles')
-    .update({ starting_balance: requireNumber(startingBalanceDraft.value, 'Starting balance', { min: 0, max: 1_000_000_000 }) })
-    .eq('id', currentUser.id)
-
-  if (saveError) {
-    error.value = saveError.message
-    return
-  }
-
-  await refreshEverything()
-}
-
-function transactionLabel(type: TransactionType) {
-  return transactionTypeOptions.find((option) => option.value === type)?.label ?? type
-}
-
-const currentBalance = computed(() => auth.currentBalance.value)
-const startingBalance = computed(() => auth.startingBalance.value)
-const transactionNet = computed(() => transactions.value.reduce((sum, row) => sum + toNumber(row.amount), 0))
 const activeInstruments = computed(() => instruments.value.filter((instrument) => instrument.is_active))
 const filteredInstruments = computed(() => {
   const query = instrumentSearch.value.trim().toLowerCase()
@@ -965,164 +800,11 @@ onBeforeUnmount(() => {
       </div>
     </SectionCard>
 
-    <div class="management-summary">
-      <div class="management-stat glass-card">
-        <div class="detail-label">Starting Balance</div>
-        <div class="detail-value">{{ ledger.formatMoney(startingBalance) }}</div>
-        <div class="muted">Defined manually in profile</div>
-      </div>
-      <div class="management-stat glass-card">
-        <div class="detail-label">Current Balance</div>
-        <div class="detail-value" :class="currentBalance >= 0 ? 'positive' : 'negative'">
-          {{ ledger.formatMoney(currentBalance) }}
-        </div>
-        <div class="muted">Starting balance + trades + transactions</div>
-      </div>
-      <div class="management-stat glass-card">
-        <div class="detail-label">Transactions</div>
-        <div class="detail-value">{{ ledger.formatNumber(transactions.length) }}</div>
-        <div class="muted" :class="transactionNet >= 0 ? 'positive' : 'negative'">
-          {{ ledger.formatMoney(transactionNet) }} net flow
-        </div>
-      </div>
-      <div class="management-stat glass-card">
-        <div class="detail-label">Instruments</div>
-        <div class="detail-value">{{ activeInstrumentCount }}/{{ totalInstrumentCount }}</div>
-        <div class="muted">Active symbols in the dictionary</div>
-      </div>
-      <div class="management-stat glass-card">
-        <div class="detail-label">Strategies</div>
-        <div class="detail-value">{{ activeStrategyCount }}/{{ strategyRows.length }}</div>
-        <div class="muted">Setups available in the trade composer</div>
-      </div>
-    </div>
-
-    <SectionCard
-      title="Account Balance"
-      subtitle="Set the base balance and keep the equity figure in sync."
-    >
-      <div class="management-inline">
-        <label class="field">
-          <span>Starting balance</span>
-          <input
-            v-model.number="startingBalanceDraft"
-            type="number"
-            step="0.01"
-            min="0"
-            class="form-input form-input--number"
-          >
-        </label>
-
-        <label class="field">
-          <span>Base currency</span>
-          <div class="field-static">USD</div>
-        </label>
-
-        <div class="management-action-box">
-          <div class="muted">The current balance updates automatically from trades and cash movements.</div>
-          <PButton
-            label="Save starting balance"
-            icon="pi pi-save"
-            severity="success"
-            class="input-dark action-primary"
-            :loading="loading"
-            @click="saveStartingBalance"
-          />
-        </div>
-      </div>
+    <SectionCard title="Trading accounts" subtitle="Manage account balances, funding stages, payouts and documents in Accounts.">
+      <NuxtLink to="/accounts" class="positive">Open Accounts →</NuxtLink>
     </SectionCard>
 
-    <PositionCalculator :default-starting-balance="startingBalance" />
-
     <div class="two-col management-grid">
-      <SectionCard
-        title="Account Transactions"
-        subtitle="Add deposits, withdrawals and corrections."
-      >
-        <div class="stack">
-          <div class="management-form management-form--grid">
-            <label class="field">
-              <span>Type</span>
-              <PDropdown
-                v-model="transactionForm.transactionType"
-                :options="transactionTypeOptions"
-                option-label="label"
-                option-value="value"
-                class="input-dark"
-              />
-            </label>
-
-            <label class="field">
-              <span>Amount</span>
-              <input
-                v-model.number="transactionForm.amount"
-                type="number"
-                step="0.01"
-                class="form-input form-input--number"
-              >
-            </label>
-
-            <label class="field">
-              <span>Date & time</span>
-              <input v-model="transactionForm.happenedAt" type="datetime-local" class="form-input" />
-            </label>
-
-            <label class="field field--full">
-              <span>Notes</span>
-              <PTextarea
-                v-model="transactionForm.notes"
-                auto-resize
-                rows="3"
-                class="input-dark"
-                placeholder="Optional note..."
-              />
-            </label>
-          </div>
-
-          <div class="management-action-row">
-            <div class="muted">
-              Signed amount is handled automatically for withdrawals, fees and transfers out.
-            </div>
-            <PButton
-              label="Add transaction"
-              icon="pi pi-plus"
-              severity="success"
-              class="input-dark action-primary"
-              :loading="savingTransaction"
-              @click="saveTransaction"
-            />
-          </div>
-
-          <div class="management-list management-list--scroll">
-            <div
-              v-for="row in transactions"
-              :key="row.id"
-              class="management-row"
-            >
-              <div>
-                <div class="management-row-title">{{ transactionLabel(row.transaction_type) }}</div>
-                <div class="management-row-meta">{{ new Date(row.happened_at).toLocaleString() }} | {{ row.currency }}</div>
-                <div class="management-row-note">
-                  {{ row.notes || 'No notes' }}
-                </div>
-              </div>
-
-              <div class="management-row-value" :class="Number(row.amount) >= 0 ? 'positive' : 'negative'">
-                {{ ledger.formatSignedMoney(toNumber(row.amount)) }}
-              </div>
-
-              <PButton
-                icon="pi pi-trash"
-                severity="danger"
-                text
-                class="input-dark action-danger"
-                @click="deleteTransaction(row.id)"
-              />
-            </div>
-          </div>
-        </div>
-      </SectionCard>
-
       <SectionCard
         title="Symbol Dictionary"
         subtitle="Add, edit and deactivate symbols from the app."

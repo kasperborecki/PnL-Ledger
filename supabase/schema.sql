@@ -1,4 +1,7 @@
 -- PnL Ledger - Supabase schema
+-- After this base schema, run the numbered migrations in order.
+-- 010_trading_accounts.sql is required by the current app; do not re-run this
+-- base schema after 010, as its legacy profile balance triggers are superseded.
 -- Tables:
 -- 1) profiles
 -- 2) instruments

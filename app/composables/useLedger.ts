@@ -26,6 +26,7 @@ type ExportFormat = 'csv' | 'pdf' | 'report'
 const TRADE_EMOTION_PLACEHOLDER = 'N/A'
 
 type TradeDraft = {
+  accountId: string
   date: string
   time: string
   closeDate: string
@@ -53,6 +54,7 @@ type TradeDraft = {
 }
 
 type OpenTradeDraft = {
+  accountId: string
   date: string
   time: string
   symbol: string
@@ -96,6 +98,7 @@ type PlaybookCard = {
 
 type DbTradeRow = {
   id: string
+  account_id: string
   symbol: string
   trade_date: string
   trade_time: string
@@ -134,6 +137,7 @@ type DbScreenshotRow = {
 
 type DbOpenTradeRow = {
   id: string
+  account_id: string
   symbol: string
   trade_date: string
   trade_time: string
@@ -326,6 +330,7 @@ function createDraft(date = todayKey()): TradeDraft {
   const start = getCurrentDateTimeParts(date)
   const close = addMinutesToDateTime(start.date, start.time, 30)
   return {
+    accountId: '',
     date: start.date,
     time: start.time,
     closeDate: close.date,
@@ -356,6 +361,7 @@ function createDraft(date = todayKey()): TradeDraft {
 function createOpenTradeDraft(date = todayKey()): OpenTradeDraft {
   const start = getCurrentDateTimeParts(date)
   return {
+    accountId: '',
     date: start.date,
     time: start.time,
     symbol: 'NAS100',
@@ -375,6 +381,7 @@ function createOpenTradeDraft(date = todayKey()): OpenTradeDraft {
 
 function createOpenTradeDraftFromTrade(trade: OpenTrade): OpenTradeDraft {
   return {
+    accountId: trade.accountId,
     date: trade.date,
     time: trade.time,
     symbol: trade.symbol,
@@ -407,6 +414,7 @@ function createPlaybookDraft(): PlaybookDraft {
 function createDraftFromTrade(trade: Trade): TradeDraft {
   const close = addMinutesToDateTime(trade.date, trade.time, trade.holdMinutes)
   return {
+    accountId: trade.accountId,
     date: trade.date,
     time: trade.time,
     closeDate: close.date,
@@ -437,6 +445,7 @@ function createDraftFromTrade(trade: Trade): TradeDraft {
 function createDraftFromOpenTrade(trade: OpenTrade): TradeDraft {
   const close = getCurrentDateTimeParts()
   return {
+    accountId: trade.accountId,
     date: trade.date,
     time: trade.time,
     closeDate: close.date,
@@ -797,6 +806,7 @@ function buildPlaybookCard(draft: PlaybookDraft): PlaybookCard {
 function toTrade(row: DbTradeRow, screenshots: TradeScreenshot[]) {
   return {
     id: row.id,
+    accountId: row.account_id,
     date: row.trade_date,
     time: row.trade_time.slice(0, 5),
     symbol: row.symbol,
@@ -833,6 +843,7 @@ function toTrade(row: DbTradeRow, screenshots: TradeScreenshot[]) {
 function toOpenTrade(row: DbOpenTradeRow) {
   return {
     id: row.id,
+    accountId: row.account_id,
     date: row.trade_date,
     time: row.trade_time.slice(0, 5),
     symbol: row.symbol,
@@ -886,8 +897,10 @@ function getCsvValue(value: unknown) {
   return raw
 }
 
-function buildCsv(trades: Trade[]) {
+function buildCsv(trades: Trade[], currency: string) {
   const header = [
+    'accountId',
+    'currency',
     'date',
     'time',
     'symbol',
@@ -914,6 +927,8 @@ function buildCsv(trades: Trade[]) {
   ]
 
   const rows = trades.map((trade) => [
+    trade.accountId,
+    currency,
     trade.date,
     trade.time,
     trade.symbol,
@@ -942,7 +957,8 @@ function buildCsv(trades: Trade[]) {
   return [header.join(','), ...rows].join('\n')
 }
 
-function buildReport(trades: Trade[]) {
+function buildReport(trades: Trade[], currency: string) {
+  const formatSign = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(value)
   const count = trades.length
   const netPnl = trades.reduce((sum, trade) => sum + trade.netPnl, 0)
   const wins = trades.filter((trade) => trade.result === 'Win').length
@@ -963,7 +979,8 @@ function buildReport(trades: Trade[]) {
   ].join('\n')
 }
 
-function buildPrintableHtml(trades: Trade[]) {
+function buildPrintableHtml(trades: Trade[], currency: string) {
+  const formatSign = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(value)
   const rows = trades
     .map(
       (trade) => `
@@ -1017,7 +1034,7 @@ function buildPrintableHtml(trades: Trade[]) {
       <body>
         <h1>P&L Ledger Report</h1>
         <p>Trades: ${trades.length}</p>
-        <p>Net P&L: ${total.toFixed(2)}</p>
+        <p>Net P&L: ${escapeHtml(formatSign(total))}</p>
         <p>Win rate: ${winRate.toFixed(1)}%</p>
         <table>
           <thead>
@@ -1082,6 +1099,8 @@ function escapeHtml(value: string) {
 
 export function useLedger() {
   const auth = useAuth()
+  const accounts = useTradingAccounts()
+  const formatSign = (value: number) => `${value > 0 ? '+' : ''}${accounts.money(value)}`
   const timeframe = useState<Timeframe>('pnl-ledger-timeframe', () => 'Month')
   const selectedSymbol = useState('pnl-ledger-symbol', () => 'All')
   const selectedSetup = useState('pnl-ledger-setup', () => 'All')
@@ -1112,6 +1131,7 @@ export function useLedger() {
   const hasLoaded = useState<boolean>('pnl-ledger-data-loaded', () => false)
 
   function clearLedgerData() {
+    accounts.clear()
     tradeItems.value = []
     openTradeItems.value = []
     savedPlaybookCards.value = []
@@ -1325,6 +1345,7 @@ export function useLedger() {
       }
 
       const supabase = useSupabase()
+      await accounts.refresh()
       const [
         { data: tradeRows, error: tradeError },
         { data: openTradeRows, error: openTradeError },
@@ -1517,6 +1538,7 @@ export function useLedger() {
 
     const payload = {
       user_id: currentUser.id,
+      account_id: accounts.requireAccount(draft.accountId, Boolean(editingOpenTradeId.value)),
       symbol: validated.symbol,
       trade_date: validated.date,
       trade_time: validated.time,
@@ -1663,6 +1685,7 @@ export function useLedger() {
 
     const payload = {
       user_id: currentUser.id,
+      account_id: accounts.requireAccount(draft.accountId, Boolean(editingTradeId.value)),
       symbol: validated.symbol,
       trade_date: validated.date,
       trade_time: validated.time,
@@ -1760,6 +1783,7 @@ export function useLedger() {
 
     const payload = {
       user_id: currentUser.id,
+      account_id: accounts.requireAccount(openTrade.accountId, true),
       symbol: validated.symbol,
       trade_date: openTrade.date,
       trade_time: openTrade.time,
@@ -1838,6 +1862,7 @@ export function useLedger() {
   function openTradeDialog(date = todayKey()) {
     editingTradeId.value = null
     newTradeDraft.value = createDraft(date)
+    newTradeDraft.value.accountId = accounts.defaultAccountId()
     isTradeDialogOpen.value = true
   }
 
@@ -1846,6 +1871,7 @@ export function useLedger() {
     editingOpenTradeId.value = null
     closingOpenTradeId.value = null
     openTradeDraft.value = createOpenTradeDraft(date)
+    openTradeDraft.value.accountId = accounts.defaultAccountId()
     isOpenTradeDialogOpen.value = true
   }
 
@@ -2034,24 +2060,25 @@ export function useLedger() {
     const trades = filteredTrades.value
 
     if (format === 'csv') {
-      downloadTextFile(`pnl-ledger-${selectedMonth.value}.csv`, buildCsv(trades), 'text/csv')
+      downloadTextFile(`pnl-ledger-${selectedMonth.value}.csv`, buildCsv(trades, accounts.currency.value), 'text/csv')
       return
     }
 
     if (format === 'report') {
-      downloadTextFile(`pnl-ledger-report-${selectedMonth.value}.md`, buildReport(trades), 'text/markdown')
+      downloadTextFile(`pnl-ledger-report-${selectedMonth.value}.md`, buildReport(trades, accounts.currency.value), 'text/markdown')
       return
     }
 
-    openPrintableReport(buildPrintableHtml(trades))
+    openPrintableReport(buildPrintableHtml(trades, accounts.currency.value))
   }
 
   const filteredTrades = computed(() => {
     const query = String(searchQuery.value ?? '').trim().toLowerCase()
+    const scopedTrades = tradeItems.value.filter(trade => accounts.scopeIds.value.has(trade.accountId))
     const anchorDate =
-      tradeItems.value.reduce((latest, trade) => (trade.date > latest ? trade.date : latest), tradeItems.value[0]?.date ?? todayKey())
+      scopedTrades.reduce((latest, trade) => (trade.date > latest ? trade.date : latest), scopedTrades[0]?.date ?? todayKey())
 
-    return tradeItems.value.filter((trade) => {
+    return scopedTrades.filter((trade) => {
       const matchesSearch =
         !query ||
         [trade.symbol, trade.setup, trade.notes, trade.whyEntered, trade.whatWentWell, trade.whatToImprove]
@@ -2079,10 +2106,11 @@ export function useLedger() {
 
   const filteredOpenTrades = computed(() => {
     const query = String(searchQuery.value ?? '').trim().toLowerCase()
+    const scopedTrades = openTradeItems.value.filter(trade => accounts.scopeIds.value.has(trade.accountId))
     const anchorDate =
-      openTradeItems.value.reduce((latest, trade) => (trade.date > latest ? trade.date : latest), openTradeItems.value[0]?.date ?? todayKey())
+      scopedTrades.reduce((latest, trade) => (trade.date > latest ? trade.date : latest), scopedTrades[0]?.date ?? todayKey())
 
-    return openTradeItems.value.filter((trade) => {
+    return scopedTrades.filter((trade) => {
       const matchesSearch =
         !query ||
         [trade.symbol, trade.setup, trade.notes, trade.whyEntered]
@@ -2187,16 +2215,16 @@ export function useLedger() {
   }))
 
   const selectedTrade = computed(() =>
-    tradeItems.value.find((trade) => trade.id === selectedTradeId.value) ?? tradeItems.value[0] ?? null,
+    filteredTrades.value.find((trade) => trade.id === selectedTradeId.value) ?? filteredTrades.value[0] ?? null,
   )
   const selectedOpenTrade = computed(() =>
-    openTradeItems.value.find((trade) => trade.id === selectedOpenTradeId.value) ?? null,
+    filteredOpenTrades.value.find((trade) => trade.id === selectedOpenTradeId.value) ?? null,
   )
 
   const selectedDayTrades = computed(() => {
     const day = selectedDay.value
     return tradeItems.value
-      .filter((trade) => trade.date === day)
+      .filter((trade) => trade.date === day && accounts.scopeIds.value.has(trade.accountId))
       .sort((a, b) => b.time.localeCompare(a.time))
   })
 
@@ -2432,10 +2460,10 @@ export function useLedger() {
     refreshLedger,
     clearLedgerData,
     exportCurrentView,
-    formatMoney: (value: number) => money.format(value),
-    formatPlainMoney: (value: number) => plainMoney.format(value),
+    formatMoney: (value: number) => accounts.money(value),
+    formatPlainMoney: (value: number) => accounts.money(value),
     formatPercent: (value: number) => percent.format(value),
-    formatSignedMoney: formatSign,
+    formatSignedMoney: (value: number) => `${value > 0 ? '+' : ''}${accounts.money(value)}`,
     formatNumber: (value: number) => decimal.format(value),
     formatRatio: (value: number | string | null | undefined) => formatTruncatedDecimal(value),
     formatDuration: (value: number | string | null | undefined) => formatDurationMinutes(value),

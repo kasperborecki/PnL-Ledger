@@ -3,7 +3,7 @@ import ManagementView from '~/components/views/ManagementView.vue'
 
 definePageMeta({
   title: 'Settings',
-  subtitle: 'Manage symbols, balances and account cash flow',
+  subtitle: 'Manage your profile, symbols and trading setups',
 })
 </script>
 

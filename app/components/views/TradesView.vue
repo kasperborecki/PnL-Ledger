@@ -6,6 +6,7 @@ import TradeTable from '~/components/trades/TradeTable.vue'
 import type { OpenTrade, Trade } from '~/data/ledger'
 
 const ledger = useLedger()
+const accounts = useTradingAccounts()
 
 const filteredTrades = computed(() => ledger.filteredTrades.value ?? [])
 const filteredOpenTrades = computed(() => ledger.filteredOpenTrades.value ?? [])
@@ -74,6 +75,7 @@ function handleSelectOpenTrade(trade: OpenTrade) {
                 <div class="open-trade-card-head">
                   <div>
                     <strong>{{ trade.symbol }} {{ trade.direction }}</strong>
+                    <div class="muted">{{ accounts.accounts.value.find(a => a.id === trade.accountId)?.name }}</div>
                     <div class="muted">{{ trade.setup }} - {{ trade.session }}</div>
                   </div>
                   <PTag value="Open" severity="warning" />

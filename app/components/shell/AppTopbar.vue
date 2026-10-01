@@ -1,6 +1,8 @@
 <script setup lang="ts">
 const route = useRoute()
 const ledger = useLedger()
+const accounts = useTradingAccounts()
+const showTradeFilters = computed(() => route.path !== '/accounts')
 
 const title = computed(() => String(route.meta.title ?? 'P&L Ledger'))
 const subtitle = computed(() => String(route.meta.subtitle ?? 'Trading Journal & Performance Tracker'))
@@ -48,7 +50,7 @@ function setTimeframe(value: string) {
         </div>
       </div>
 
-      <div class="topbar-primary">
+      <div v-if="showTradeFilters" class="topbar-primary">
         <div class="range-chip-group">
           <button
             v-for="option in ledger.rangeOptions"
@@ -64,7 +66,10 @@ function setTimeframe(value: string) {
     </div>
 
     <div class="topbar-filters">
+      <PDropdown v-model="accounts.selectedId.value" :options="accounts.options.value" option-label="label" option-value="value" class="input-dark" placeholder="Account" aria-label="Account filter" style="min-width: 220px" />
+      <PDropdown v-if="accounts.selectedId.value === 'All'" v-model="accounts.reportingCurrency.value" :options="accounts.currencies.value" class="input-dark" aria-label="Reporting currency" style="min-width: 100px" />
       <PDropdown
+        v-if="showTradeFilters"
         v-model="selectedSymbol"
         :options="symbolOptions"
         option-label="label"
@@ -75,6 +80,7 @@ function setTimeframe(value: string) {
       />
 
       <PDropdown
+        v-if="showTradeFilters"
         v-model="selectedSetup"
         :options="setupOptions"
         option-label="label"
@@ -85,6 +91,7 @@ function setTimeframe(value: string) {
       />
 
       <PDropdown
+        v-if="showTradeFilters"
         v-model="selectedSession"
         :options="sessionOptions"
         option-label="label"
@@ -95,8 +102,8 @@ function setTimeframe(value: string) {
       />
     </div>
 
-    <div v-if="ledger.loadError.value" class="sync-banner">
-      Data sync error: {{ ledger.loadError.value }}
+    <div v-if="ledger.loadError.value || accounts.error.value" class="sync-banner">
+      {{ accounts.error.value || ledger.loadError.value }}
     </div>
   </header>
 </template>
